@@ -129,6 +129,13 @@ def _llm_point_hits(question: str, answer: str, points: list[str]) -> list[bool]
     """Ask the judge model whether each gold point is substantively covered."""
     if not points or not answer.strip():
         return [False] * len(points)
+    payload = question + "||" + answer + "||" + "\n".join(points)
+    return _cached("points", payload,
+                   lambda: _llm_point_hits_uncached(question, answer, points))
+
+
+def _llm_point_hits_uncached(question: str, answer: str,
+                             points: list[str]) -> list[bool]:
     enumerated = "\n".join(f"{i}. {p}" for i, p in enumerate(points, 1))
     try:
         import json as _json
@@ -276,6 +283,29 @@ Reply with JSON only: {{"violates": true/false, "quote": "<short quote or empty>
 _forbidden_cache: dict[tuple[str, str], bool] = {}
 
 
+def _disk_cache() -> Path:
+    d = RESULTS / ".judge_cache"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _cache_path(kind: str, payload: str) -> Path:
+    return _disk_cache() / f"{kind}-{hashlib.sha256(payload.encode()).hexdigest()[:20]}.json"
+
+
+def _cached(kind: str, payload: str, compute):
+    """Judge results persist across runs, so re-judging is instant."""
+    cp = _cache_path(kind, payload)
+    if cp.exists():
+        try:
+            return json.loads(cp.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001 - recompute on a corrupt cache file
+            pass
+    value = compute()
+    cp.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+    return value
+
+
 def _llm_forbidden_check(prohibition: str, answer: str, question: str) -> bool:
     key = (hash(prohibition), hash(answer))
     if key in _forbidden_cache:
@@ -283,6 +313,17 @@ def _llm_forbidden_check(prohibition: str, answer: str, question: str) -> bool:
     if not answer.strip():
         _forbidden_cache[key] = False
         return False
+
+    def compute() -> bool:
+        return _llm_forbidden_uncached(prohibition, answer, question)
+
+    verdict = _cached("forbidden", prohibition + "||" + question + "||" + answer,
+                      compute)
+    _forbidden_cache[key] = verdict
+    return verdict
+
+
+def _llm_forbidden_uncached(prohibition: str, answer: str, question: str) -> bool:
     try:
         import json as _json
         import os
@@ -392,10 +433,16 @@ def render(qs: list[dict], results: list[dict], stats: dict, model: str) -> str:
     return "\n".join(lines)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    import argparse
     import os
 
     from dotenv import load_dotenv
+
+    ap = argparse.ArgumentParser(description="Run the 17 gold-card questions")
+    ap.add_argument("--judge-only", action="store_true",
+                    help="reuse cached answers, re-run only the judging step")
+    args = ap.parse_args(argv)
 
     load_dotenv(ROOT / ".env")
     model = os.environ.get("LLM_MODEL")
@@ -404,16 +451,28 @@ def main() -> int:
     if len(qs) != 17:
         print(f"WARNING: parsed {len(qs)} questions, expected 17", file=sys.stderr)
     RESULTS.mkdir(parents=True, exist_ok=True)
+    answers_file = RESULTS / "answers_cache.json"
+    cache = (json.loads(answers_file.read_text(encoding="utf-8"))
+             if answers_file.exists() else {})
 
     results = []
     for q in qs:
         trace: list[dict] = []
-        res = agent.ask(q["question"], trace=trace)
+        if args.judge_only and q["qid"] in cache:
+            res = cache[q["qid"]]
+            print(f"Q{q['qid']}: cached ({len(res.get('answer') or '')} chars)",
+                  flush=True)
+        else:
+            res = agent.ask(q["question"], trace=trace)
+            cache[q["qid"]] = res
+            answers_file.write_text(json.dumps(cache, ensure_ascii=False),
+                                    encoding="utf-8")
+            print(f"Q{q['qid']}: {res['tool_calls']} calls, "
+                  f"{len(res['answer'] or '')} chars", flush=True)
         # citations really present in the emitted answer text
-        citations = sorted(set(re.findall(r"\[([^\]\n]{3,120})\]", res["answer"] or "")))
+        citations = sorted(set(re.findall(r"\[([^\]\n]{3,120})\]",
+                                          res.get("answer") or "")))
         results.append({"result": res, "inspect": {"citations": citations}})
-        print(f"Q{q['qid']}: {res['tool_calls']} calls, {len(res['answer'] or '')} chars",
-              flush=True)
 
     for q, r in zip(qs, results):
         r["judgement"] = judge(q, r)
