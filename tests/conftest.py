@@ -17,8 +17,8 @@ import sys
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-# Select the scratch graph before importing anything that connects.
-os.environ.setdefault("GRAPH_NAME", "oncall_brain_test")
+# The default suite is offline. Destructive integration fixtures require an
+# explicit scratch-graph opt-in; never erase a graph selected by the app .env.
 
 from oncall_brain import db, schema as S  # noqa: E402
 from oncall_brain.ingest import deterministic  # noqa: E402
@@ -27,6 +27,8 @@ from oncall_brain.ingest import deterministic  # noqa: E402
 @pytest.fixture(scope="session")
 def graph():
     """A freshly built deterministic graph, all assertions approved."""
+    if os.environ.get("ONCALL_ALLOW_TEST_GRAPH") != "1" or db.GRAPH_NAME != "oncall_brain_test":
+        pytest.skip("offline run: destructive scratch-graph fixture is disabled")
     db.wipe()
     db.ensure_indexes()
     payload, rejects = deterministic.extract()

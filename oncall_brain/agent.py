@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 
 from . import tools
+from .citations import citation_pairs, compact_tool_result, normalize_citations, parse_citation
 
 ROOT = Path(__file__).resolve().parent.parent
 MAX_CALLS = 8
@@ -39,18 +40,26 @@ HARD RULES:
    number. A correct-but-generic answer ("use the standard procedure") is a
    failure. If several people are involved, say which one does what.
 5. MAINTAINED_BY proves only who curates a document. It is NEVER an escalation or troubleshooting target. The module escalation owner is TECH_LEAD_OF.
-6. When several visible values occupy the same slot, present them all ranked by authority (formal_rule > practice > observation) and label it a conflict. Do not silently pick one.
+6. Conflict requires the SAME subject and question slot, overlapping conditions,
+   and mutually exclusive values. Different predicates, multi-valued facts and
+   different granularity are not conflicts. Use the returned conflict records
+   only when they concern the question; incidental neighbour conflicts do not
+   determine the answer status. Rank actual conflicts by authority.
 7. A rule targeted by SUPERSEDES is superseded: give the current rule, then state the old one, the replacement, and the effective date.
 8. A rule with a condition (e.g. severity=P3) that the question does not supply is insufficient_context: answer with the conditional rule AND ask for the missing condition.
-9. If nothing relevant is visible, answer not_found -- state plainly that the material has no answer, and say who/what to ask next. Never speculate.
+9. If the requested facts are absent, answer not_found. List only what was
+   searched and which requested facts are missing. Do not suggest a plausible
+   owner, procedure, or related module. An owner of a similar module does not
+   establish ownership of an unknown component or a remedy for an unknown error.
 
 ANSWER FORMAT: first line MUST be Status: <applicable|insufficient_context|conflict|superseded|not_found>.
-Use the answer_status returned by relevant tools, never infer status from prose.
+Choose a status supported by tools relevant to the question. You may report
+not_found even when a tool returned unrelated applicable facts.
 Then use these markdown sections (omit a section only when empty):
 ## Next step
 Concrete action the asker should take now. Concrete names, paths, forms, deadlines.
 ## Basis
-Each claim on its own line ending with the citation `[aid -> file:line]`. Use the
+Each claim on its own line ending with the citation `[aid \u2192 file:line]`. Use the
 `aid` and the evidence locator exactly as returned (source:locator).
 ## Actual common practice
 Marked observation/practice when it differs from or sits beside the official path, with its risk and citation.
@@ -60,7 +69,10 @@ Conflicting values side by side with authority levels; superseded rules with rep
 What has no answer here, and who to ask to close it.
 
 Prefer answering in the language of the question. Cite at least one piece of
-evidence for every factual claim you make.
+evidence for every factual line in EVERY section, including Next step. Do not
+split a claim and its citation across lines. Omit uncited introductions and
+advice. Only headings, empty lines and questions asking for missing context
+may omit citations. Never duplicate the locator inside a citation.
 """
 
 
@@ -91,13 +103,54 @@ def _arg_str(args: dict) -> str:
     return ", ".join(parts)
 
 
-def answer_status(results: list[dict]) -> str:
+def answer_status(results: list[dict], proposed: str | None = None) -> str:
     """State comes from tool contracts; absent/failed evidence is incomplete."""
     states = {r.get("answer_status") for r in results}
+    if proposed == "not_found":
+        return "not_found"
+    if proposed == "applicable" and any(r.get("assertions") or r.get("paths")
+                                       or r.get("source_evidence") for r in results):
+        return proposed
+    if proposed and proposed in states:
+        return proposed
     for state in ("conflict", "superseded", "insufficient_context", "applicable", "not_found"):
         if state in states:
             return state
     return "insufficient_context"
+
+
+def _missing_identifiers(question: str, results: list[dict]) -> list[str]:
+    identifiers = re.findall(r"\b[A-Za-z][A-Za-z0-9]*(?:[-_][A-Za-z0-9]+){2,}\b|\b0x[0-9A-Fa-f]+\b", question)
+    # Opaque component/error identifiers, not ordinary hyphenated prose.
+    identifiers = [s for s in identifiers if "_" in s or re.search(r"[A-Z0-9]", s)]
+    facts = [{k: r[k] for k in ("entity", "candidates", "assertions", "paths", "evidence", "source_evidence")
+              if k in r} for r in results]
+    visible = json.dumps(facts, ensure_ascii=False).casefold()
+    return sorted({s for s in identifiers if s.casefold() not in visible})
+
+
+def _grounded_lines(answer: str, supported: set[tuple[str, str]]) -> bool:
+    facts = 0
+    for line in answer.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or line in ("---", "***"):
+            continue
+        citations = re.findall(r"\[([^\]\n]+)\]", line)
+        pairs = [parse_citation(c) for c in citations if "corpus/" in c or "->" in c or "\u2192" in c]
+        if any(pair not in supported for pair in pairs):
+            return False
+        if not pairs and not line.endswith(("?", "\uff1f")):
+            return False
+        facts += bool(pairs)
+    return bool(facts)
+
+
+def _not_found_answer(question: str, log: list[dict], missing: list[str]) -> str:
+    searched = [f"- {entry['tool']}({_arg_str(entry['args'])})" for entry in log]
+    return ("## Searched\n" + ("\n".join(searched) or "- No successful retrieval.")
+            + "\n## Missing\n- Requested facts: " + question.replace("\n", " ")
+            + ("\n- Unretrieved identifiers: " + ", ".join(missing) if missing else "")
+            + "\n- The retrieved evidence does not establish the requested answer.")
 
 
 def ask(question: str, model: str | None = None, trace: list | None = None,
@@ -149,6 +202,9 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
                     result = tools.call_tool(name, args)
             else:
                 result = tools.call_tool(name, args)
+            result = compact_tool_result(result)
+            result["citations"] = [f"[{aid} \u2192 {locator}]"
+                                   for aid, locator in sorted(citation_pairs([result]))]
             tool_results.append(result)
             entry = {"step": step + 1, "tool": name, "args": args,
                      "args_str": _arg_str(args),
@@ -209,8 +265,15 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
 
     if trace is not None:
         trace.extend(log)
-    state = answer_status(tool_results)
+    proposed = re.match(r"\AStatus:\s*(\w+)", answer)
+    state = answer_status(tool_results, proposed[1] if proposed else None)
     answer = re.sub(r"\AStatus:[^\n]*(?:\n|$)", "", answer)
+    supported = citation_pairs(tool_results)
+    answer = normalize_citations(answer, supported)
+    missing = _missing_identifiers(question, tool_results)
+    if missing or state == "not_found" or not _grounded_lines(answer, supported):
+        state = "not_found"
+        answer = _not_found_answer(question, log, missing)
     answer = f"Status: {state}\n" + answer
     return {"question": question, "answer": answer, "trace": log,
             "tool_results": tool_results, "answer_status": state,
@@ -227,12 +290,14 @@ def _templates_for(name: str, args: dict, result: dict) -> list[str]:
             return ["(no query)"]
         keys = ["fulltext_search_kind" if args.get("kind") else "fulltext_search"]
         keys.append("id_prefix_kind" if args.get("kind") else "id_prefix")
+        if result.get("source_evidence"):
+            keys.append("source_search")
         return keys
     if name == "read_knowledge":
         return ["read_entity", "read_neighbors", "superseded_targets",
-                "slot_claims", "evidence_by_id", "(relationship evidence join)"]
+                "slot_claims", "claim_value_kinds", "evidence_by_id", "(relationship evidence join)"]
     if name == "query_relations":
         if result.get("status") == "error":
             return ["(rejected before query)"]
-        return ["traverse", "superseded_targets", "slot_claims", "evidence_by_id"]
+        return ["traverse", "superseded_targets", "slot_claims", "claim_value_kinds", "evidence_by_id"]
     return []

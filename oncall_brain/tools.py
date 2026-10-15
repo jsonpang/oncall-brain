@@ -14,6 +14,7 @@ from __future__ import annotations
 import datetime
 import os
 import json
+import re
 
 from . import schema as S
 from .db import g
@@ -59,12 +60,42 @@ TEMPLATES = {
     "evidence_by_id": (
         "MATCH (e:Evidence) WHERE e.id IN $ids "
         "RETURN e.id, e.source, e.locator, e.excerpt, e.authority"),
+    "source_search": (
+        "MATCH (e:Evidence) WHERE toLower(e.excerpt) CONTAINS toLower($q) "
+        "RETURN e.id, e.source, e.locator, e.excerpt, e.authority "
+        "ORDER BY e.source, e.locator LIMIT $limit"),
+    "claim_value_kinds": (
+        "MATCH (n:Entity) WHERE n.id IN $values OR n.name IN $values "
+        "RETURN n.id, n.name, n.kind"),
     "slot_claims": (
         "MATCH (s:Entity)-[r]->(o:Entity) WHERE " + VISIBLE + " "
         "AND r.claims_json IS NOT NULL "
         "AND (s.id IN $ids OR o.id IN $ids OR any(x IN r.claim_subjects WHERE x IN $ids)) "
         "RETURN s.id, o.id, r.aid, r.authority, r.valid_from, r.valid_to, r.claims_json, r.evidence"),
 }
+
+
+def _exclusive_values(left: dict, right: dict) -> bool:
+    """Different text alone does not prove that two values are exclusive."""
+    pred = left["predicate"]
+    if any(c.get("cardinality") in ("many", "multi") for c in (left, right)):
+        return False
+    if pred in S.PREDICATES and pred not in S.SINGLE_VALUED:
+        return False
+    def kind(c):
+        return str(c.get("value_kind") or (c["value"].split(":", 1)[0]
+                   if ":" in c["value"] else "")).lower()
+    lk, rk = kind(left), kind(right)
+    if lk != rk:
+        return False
+    if pred in S.SINGLE_VALUED or all(c.get("cardinality") == "one" for c in (left, right)):
+        return True
+    # Canonical scalar measurements and scalar routing duties are comparable.
+    scalar = r"[+-]?\d+(?:\.\d+)?\s*([^\d\s].*)?"
+    lm, rm = (re.fullmatch(scalar, c["value"].strip()) for c in (left, right))
+    if lm and rm and lm[1] == rm[1]:
+        return True
+    return bool(re.search(r"(?:^|_)(?:routing|owner|agent)$", pred) and lk == rk)
 
 
 def compare_claims(claims: list[dict], context: dict | None = None) -> list[dict]:
@@ -81,6 +112,8 @@ def compare_claims(claims: list[dict], context: dict | None = None) -> list[dict
         for i, left in enumerate(values):
             for right in values[i + 1:]:
                 if left["value"] == right["value"]:
+                    continue
+                if not _exclusive_values(left, right):
                     continue
                 lc, rc = left.get("condition") or {}, right.get("condition") or {}
                 if any(str(lc[k]) != str(rc[k]) for k in lc.keys() & rc.keys()):
@@ -109,6 +142,15 @@ def _slot_conflicts(ids: list[str], t: str, sup: dict, context: dict | None) -> 
                 continue
             claims.append({**c, "aid": aid, "authority": authority,
                            "valid_from": vf, "valid_to": vt, "evidence": [c["evidence_id"]]})
+    kinds = {}
+    if claims:
+        values = sorted({c["value"] for c in claims})
+        for nid, name, kind in g().query(TEMPLATES["claim_value_kinds"], {"values": values}).result_set:
+            if kind:
+                kinds[nid] = kinds[name] = kind
+    for claim in claims:
+        if claim["value"] in kinds:
+            claim.setdefault("value_kind", kinds[claim["value"]])
     conflicts = compare_claims(claims, context)
     for conflict in conflicts:
         for value in conflict["values"]:
@@ -211,6 +253,11 @@ def search_knowledge(query: str, kind: str | None = None, limit: int = 12) -> di
             "superseded_by": [r["superseded_by"] for r in sup.get(i, [])]}
            for i, k, n, s in rows]
     if not out:
+        rows = g().query(TEMPLATES["source_search"], {"q": q, "limit": int(limit)}).result_set
+        sources = [dict(zip(["id", "source", "locator", "excerpt", "authority"], row)) for row in rows]
+        if sources:
+            return {"status": "ok", "answer_status": "applicable", "query": q,
+                    "candidates": [], "source_evidence": sources}
         return {"status": "not_found", "answer_status": "not_found", "query": q, "candidates": [],
                 "note": "no entity in the current graph matches; do not guess an id"}
     return {"status": "ok", "query": q, "candidates": out}
@@ -287,15 +334,12 @@ def read_knowledge(id: str, context: dict | None = None) -> dict:
     for a in out["assertions"]:
         if a["predicate"] in S.SINGLE_VALUED and a["direction"] == "out":
             by_slot.setdefault((a["predicate"], "out"), []).append(a)
-    conflicts = []
-    for (pred, _), vals in by_slot.items():
-        if len({v["other"]["id"] for v in vals}) > 1:
-            conflicts.append({
-                "predicate": pred,
-                "values": [{"value": v["other"]["id"], "authority": v["authority"],
-                            "aid": v["aid"]} for v in vals],
-                "note": "multiple visible values for a single-valued slot; surfaced, not resolved"})
-    semantic, extra_ev = _slot_conflicts([id] + [a["other"]["id"] for a in out["assertions"]],
+    relation_claims = [dict(a, subject=id, value=a["other"]["id"],
+                            condition=dict([a["condition"].split("=", 1)])
+                            if "=" in (a.get("condition") or "") else {})
+                       for vals in by_slot.values() for a in vals if not a.get("superseded")]
+    conflicts = compare_claims(relation_claims, context)
+    semantic, extra_ev = _slot_conflicts([id],
                                        t, sup, context)
     conflicts.extend(semantic)
     ev.update(extra_ev)

@@ -14,6 +14,43 @@ from oncall_brain.ingest import llm, run, claims
 
 
 class AgentStateTests(unittest.TestCase):
+    def ask_with(self, question, answer, result):
+        call = NS(id="t1", function=NS(name="search_knowledge", arguments='{"query":"Orchid"}'))
+        messages = [NS(tool_calls=[call], content=None), NS(tool_calls=[], content=answer)]
+        client = NS(chat=NS(completions=NS(create=lambda **kw: NS(choices=[NS(message=messages.pop(0))]))))
+        with patch.object(agent, "_openai_client", return_value=client), patch.object(tools, "call_tool", return_value=result):
+            return agent.ask(question, max_calls=2)
+
+    def evidence(self):
+        return {"answer_status": "applicable", "assertions": [{"aid": "a1", "evidence": ["e1"]}],
+                "evidence": [{"id": "e1", "source": "corpus/docs/synthetic.md", "locator": "7",
+                              "excerpt": "Orchid owner is Cedar."}]}
+
+    def test_uncited_fact_is_replaced_with_search_and_gap_only(self):
+        result = self.ask_with("Who owns Orchid?", "Status: applicable\nContact an invented owner.", self.evidence())
+        self.assertEqual(result["answer_status"], "not_found")
+        self.assertNotIn("invented owner", result["answer"])
+        self.assertIn("Orchid", result["answer"])
+
+    def test_missing_specific_identifier_cannot_borrow_related_owner(self):
+        result = self.ask_with("Who owns Orchid-Edge-Sync?",
+            "Status: applicable\nCedar owns it [a1 -> corpus/docs/synthetic.md:7]", self.evidence())
+        self.assertEqual(result["answer_status"], "not_found")
+        self.assertNotIn("Cedar", result["answer"])
+
+    def test_supported_fact_uses_one_canonical_locator(self):
+        result = self.ask_with("Who owns Orchid?",
+            "Status: applicable\nCedar [a1 -> corpus/docs/synthetic.md:7 -> corpus/docs/synthetic.md:7]", self.evidence())
+        self.assertEqual(result["answer_status"], "applicable")
+        self.assertIn("[a1 \u2192 corpus/docs/synthetic.md:7]", result["answer"])
+        self.assertEqual(result["answer"].count("corpus/docs/synthetic.md:7"), 1)
+
+    def test_not_found_discards_even_cited_fallback_advice(self):
+        result = self.ask_with("Who owns Orchid?",
+            "Status: not_found\nAsk Cedar [a1 -> corpus/docs/synthetic.md:7]", self.evidence())
+        self.assertEqual(result["answer_status"], "not_found")
+        self.assertNotIn("Cedar", result["answer"])
+
     def test_status_comes_from_tools(self):
         self.assertEqual(agent.answer_status([]), "insufficient_context")
         for state in ("applicable", "conflict", "superseded", "insufficient_context", "not_found"):
@@ -91,6 +128,19 @@ class ConflictTests(unittest.TestCase):
         self.assertFalse(tools.compare_claims([
             self.claim(predicate="routing", value="team-a", value_kind="team"),
             self.claim(predicate="routing", value="person-b", value_kind="person")]))
+
+    def test_unproven_text_exclusivity_and_registered_multivalues_are_not_conflict(self):
+        self.assertFalse(tools.compare_claims([
+            self.claim(predicate="location", value="Resource:Portal"),
+            self.claim(predicate="location", value="Resource:Portal/Module/Guide")]))
+        self.assertFalse(tools.compare_claims([
+            self.claim(predicate="MAINTAINED_BY", value="Person:Juniper"),
+            self.claim(predicate="MAINTAINED_BY", value="Person:Cedar")]))
+
+    def test_explicit_single_value_and_scalar_duty_are_compared(self):
+        self.assertTrue(tools.compare_claims([
+            self.claim(predicate="routing", value="Person:Juniper", cardinality="one"),
+            self.claim(predicate="routing", value="Person:Cedar", cardinality="one")]))
 
     def test_curation_does_not_imply_technical_routing(self):
         self.assertFalse(tools.compare_claims([
@@ -341,6 +391,21 @@ class JudgeTests(unittest.TestCase):
         self.assertEqual(len(valid), 1)
         self.assertFalse(invalid)
         res["answer"] = res["answer"].replace(" -> corpus/docs/synthetic.md:7", " -> corpus/docs/synthetic.md:8")
+        self.assertTrue(gold._verified_citations(res)[1])
+
+    def test_unicode_citation_and_embedded_aid_arrows_are_exact(self):
+        aid = "det:OWNER:Person:Cedar->Module:Orchid:corpus/docs/synthetic.md:7"
+        res = {"answer": f"Status: applicable\nCedar [{aid} \u2192 corpus/docs/synthetic.md:7]",
+               "tool_results": [{"assertions": [{"aid": aid, "evidence": ["e1"]}],
+                                 "evidence": [{"id": "e1", "source": "corpus/docs/synthetic.md", "locator": "7"}]}]}
+        self.assertEqual(len(gold._verified_citations(res)[0]), 1)
+        res["answer"] = "Status: applicable\nCedar [a-made-up \u2192 corpus/docs/synthetic.md:7]"
+        self.assertTrue(gold._verified_citations(res)[1])
+
+    def test_duplicate_locator_is_rejected_by_judge(self):
+        res = {"answer": "Status: applicable\nCedar [a1 -> corpus/docs/synthetic.md:7 -> corpus/docs/synthetic.md:7]",
+               "tool_results": [{"assertions": [{"aid": "a1", "evidence": ["e1"]}],
+                                 "evidence": [{"id": "e1", "source": "corpus/docs/synthetic.md", "locator": "7"}]}]}
         self.assertTrue(gold._verified_citations(res)[1])
 
     def test_late_judge_failure_does_not_cache_partial_question(self):

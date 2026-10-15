@@ -252,25 +252,13 @@ def _conflict_evidence(question: str, answer: str) -> bool:
 
 
 def _verified_citations(res: dict) -> tuple[list[str], list[str]]:
-    """Accept only exact aid/source/locator joins from this answer's tool results."""
-    supported = set()
-    for result in res.get("tool_results", []):
-        evidence = {e["id"]: e for e in result.get("evidence", [])}
-        joins = [(a["aid"], a.get("evidence", [])) for a in result.get("assertions", [])]
-        for conflict in result.get("conflicts", []):
-            joins.extend((v["aid"], v.get("evidence", [])) for v in conflict["values"])
-        for path in result.get("paths", []):
-            joins.extend(zip(path.get("aids", []), path.get("evidence_ids", [])))
-        for aid, ids in joins:
-            for eid in ids:
-                ev = evidence.get(eid)
-                if ev:
-                    supported.add((aid, f"{ev['source']}:{ev['locator']}"))
+    """Accept only exact aid/source/locator joins from this question's tools."""
+    from oncall_brain.citations import citation_pairs, parse_citation
+    supported = citation_pairs(res.get("tool_results", []))
     valid, invalid = [], []
     for citation in re.findall(r"\[([^\]\n]+)\]", res.get("answer", "")):
-        m = re.fullmatch(r"(.+?)\s*(?:->|→)\s*(corpus/[^:]+:\d+)", citation)
-        if m:
-            pair = (m[1].strip(), m[2].strip())
+        pair = parse_citation(citation)
+        if pair is not None or "corpus/" in citation or "->" in citation or "\u2192" in citation:
             (valid if pair in supported else invalid).append(citation)
     return sorted(set(valid)), sorted(set(invalid))
 
