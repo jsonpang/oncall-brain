@@ -107,7 +107,8 @@ def _evidence_cited(answer: str, gold_evidence: list[str]) -> list[str]:
 
 
 def judge(q: dict, res: dict) -> dict:
-    answer = res["answer"] or ""
+    # res is {"result": agent result, "inspect": {...}}
+    answer = res["result"].get("answer") or ""
     a_norm = _norm(answer)
     expected = q["expected_status"]
     citations = res["inspect"]["citations"]

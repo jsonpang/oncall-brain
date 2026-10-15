@@ -107,6 +107,9 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
             break
 
         for call in msg.tool_calls:
+            if len(log) >= max_calls:
+                stop_reason = "max_calls_reached"
+                break
             name = call.function.name
             try:
                 args = json.loads(call.function.arguments or "{}")
@@ -129,9 +132,29 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
             messages.append({"role": "tool", "tool_call_id": call.id,
                              "content": json.dumps(result, ensure_ascii=False,
                                                    default=str)})
+        if len(log) >= max_calls:
+            # Any tool_calls we broke on still need a reply, or the next
+            # request is rejected as an unanswered tool call.
+            answered = {m.tool_call_id for m in messages
+                        if getattr(m, "tool_call_id", None)}
+            for call in msg.tool_calls:
+                if call.id not in answered:
+                    messages.append({"role": "tool", "tool_call_id": call.id,
+                                     "content": json.dumps(
+                                         {"status": "error",
+                                          "error": "tool-call budget exhausted"},
+                                         ensure_ascii=False)})
+            stop_reason = "max_calls_reached"
+            break
     else:
         stop_reason = "max_calls_reached"
-        if not answer:
+
+    if not answer:
+        # Always close out with a written answer, whether the budget ran out or
+        # the last turn ended on tool calls: an empty answer is useless to the
+        # reader and unjudgeable by the eval.
+        stop_reason = stop_reason if stop_reason != "completed" else "completed"
+        try:
             resp = client.chat.completions.create(
                 model=model, messages=messages + [
                     {"role": "user",
@@ -139,6 +162,8 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
                                 "now using only what the tool results showed; put "
                                 "anything unverified in Gaps."}], temperature=0.0)
             answer = resp.choices[0].message.content or ""
+        except Exception as e:  # noqa: BLE001 - surfaced in the report
+            answer = f"(answer generation failed: {type(e).__name__}: {e})"
 
     if trace is not None:
         trace.extend(log)
