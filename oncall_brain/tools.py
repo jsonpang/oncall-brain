@@ -151,7 +151,9 @@ def search_knowledge(query: str, kind: str | None = None, limit: int = 12) -> di
                                           "limit": int(limit)}).result_set
     sup = _superseded(now())
     out = [{"id": i, "kind": k, "name": n, "score": float(s),
-            "superseded": i in sup} for i, k, n, s in rows]
+            "superseded": i in sup,
+            "superseded_by": [r["superseded_by"] for r in sup.get(i, [])]}
+           for i, k, n, s in rows]
     if not out:
         return {"status": "not_found", "query": q, "candidates": [],
                 "note": "no entity in the current graph matches; do not guess an id"}
@@ -183,7 +185,11 @@ def _rel_evidence(subj: str, aid: str, predicate: str, obj: str,
 
 
 def read_knowledge(id: str, context: dict | None = None) -> dict:
-    """Node properties + every visible assertion + its evidence."""
+    """Node properties + every visible assertion + its evidence.
+
+    `other.name` is filled in for every neighbour, so the caller never has to
+    guess what an id refers to from the id string alone.
+    """
     t = now()
     row = g().query(TEMPLATES["read_entity"], {"id": id}).result_set
     if not row:

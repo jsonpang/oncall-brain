@@ -1,4 +1,4 @@
-"""Ingest orchestrator: deterministic + LLM + curated -> validate -> write candidates.
+"""Ingest orchestrator: deterministic + LLM -> validate -> canonicalise -> write.
 
 Usage (from repo root): python -m oncall_brain.ingest.run [--no-llm]
 """
@@ -15,102 +15,104 @@ ROOT = Path(__file__).resolve().parents[2]
 REJECTED = ROOT / "ingest" / "rejected.jsonl"
 
 
-def run_llm_extraction(verbose=False) -> tuple[list[dict], list[dict]]:
-    """Run LLM slices over all chats; return (edges, rejects)."""
-    edges, rejects = [], []
-    from .labeler import label_of
+def run_llm_extraction(verbose=False):
+    """Run LLM slices over chats and free-text docs; return (edges, rejects)."""
     from .. import schema as S
-    chat_dir = EV.ROOT / "corpus" / "chats"
-    files = sorted(chat_dir.glob("chat_*.md"))
+    from .labeler import label_of
+
+    vocab = llm.vocabulary()
+    edges, rejects = [], []
     n_calls = 0
-    for f in files:
-        src = f"corpus/chats/{f.name}"
-        for chunk, offset in llm.slice_chat(src):
-            out = llm.llm_extract_slice(chunk, src)
+    for src in llm.sources():
+        kind = "doc" if src.startswith("corpus/docs/") else "chat"
+        for chunk, offset in llm.slice_source(src):
+            out = llm.llm_extract_slice(chunk, src, kind=kind, vocab=vocab)
             n_calls += 1
+            ls = EV.lines(src)
             for a in out:
+                a = llm.repair_direction(a)
                 line = a.get("evidence_line")
+                # The slice prints absolute line numbers ([189] is line 189 of
+                # the file), so the offset must NOT be added again -- doing so
+                # pushed every second-and-later slice past EOF and rejected
+                # those assertions as "line out of range".
                 edge = {
-                    "subject": a.get("subject"), "predicate": a.get("predicate"),
-                    "object": a.get("object"), "source": src,
-                    "line": offset + int(line) if line else 0,
-                    "authority": a.get("authority", "observation"),
+                    "subject": str(a.get("subject") or "").strip(),
+                    "predicate": a.get("predicate"),
+                    "object": str(a.get("object") or "").strip(),
+                    "source": src,
+                    "line": int(line) if line else 0,
+                    "authority": a.get("authority") or "observation",
                     "valid_from": a.get("valid_from") or "2026-01-01",
                     "valid_to": a.get("valid_to"),
                     "state": "candidate",
-                    "props": {k: v for k, v in (a.get("props") or {}).items() if v},
+                    "props": {k: v for k, v in (a.get("props") or {}).items()
+                              if v is not None},
+                    "evidence_text": a.get("evidence_text") or "",
                 }
-                # validate: predicate, domain/range, line exists, quote on line
                 reason = None
-                if not S.is_registered(edge["predicate"]):
+                if not edge["subject"] or not edge["object"]:
+                    reason = "missing subject or object"
+                elif not S.is_registered(edge["predicate"]):
                     reason = f"unregistered predicate '{edge['predicate']}'"
                 else:
-                    sl, ol = label_of(str(edge["subject"])), label_of(str(edge["object"]))
+                    sl = label_of(edge["subject"])
+                    ol = label_of(edge["object"])
                     reason = S.validate_predicate(edge["predicate"], sl, ol)
-                    if reason is None:
-                        ls = EV.lines(src)
-                        if not (1 <= edge["line"] <= len(ls)):
-                            reason = f"line {edge['line']} out of range"
-                        else:
-                            q = (a.get("evidence_text") or "").strip()
-                            if q and q[:40] not in ls[edge["line"] - 1]:
-                                reason = "quoted evidence_text not found on line"
+                    if reason is None and not (
+                            1 <= edge["line"] <= len(ls)):
+                        reason = f"line {edge['line']} out of range"
+                    if reason is None and not llm.quote_matches(edge):
+                        reason = "quoted evidence_text not found on line"
                 if reason:
                     rejects.append({**edge, "origin": "llm", "reason": reason})
                 else:
                     edges.append(edge)
         if verbose:
             print(f"  {src}: done")
-    print(f"LLM: {n_calls} slice calls, {len(edges)} edges accepted, {len(rejects)} rejected")
+    print(f"LLM: {n_calls} slice calls, {len(edges)} edges accepted, "
+          f"{len(rejects)} rejected")
     return edges, rejects
 
 
 def build_payload(llm_edges: list[dict], llm_rejects: list[dict]):
     payload, rejects = [], []
 
-    # 1. deterministic sources
+    # 1. deterministic sources (org, tickets, module registry)
     det_payload, det_rejects = deterministic.extract()
     payload.extend(det_payload)
     rejects.extend({**r, "origin": "deterministic"} for r in det_rejects)
 
-    # 2. curated chat/doc assertions (validated)
-    for a in llm.curated():
-        reason = llm.validate(a)
-        if reason:
-            rejects.append({**a, "origin": "curated", "reason": reason})
-            continue
-        ev = EV.build(a["source"], a["line"], a["authority"])
-        assert ev is not None, f"evidence missing {a['source']}:{a['line']}"
-        aid = f"cur:{a['predicate']}:{a['subject']}->{a['object']}:{a['source']}:{a['line']}"
-        payload.append({"op": "evidence", **ev})
-        payload.append({"op": "edge", "subject": a["subject"], "predicate": a["predicate"],
-                        "object": a["object"], "aid": aid, "authority": a["authority"],
-                        "evidence": [ev["id"]], "state": a.get("state", "candidate"),
-                        "valid_from": a["valid_from"], "valid_to": a["valid_to"],
-                        "props": a.get("props", {})})
+    known = {i["id"] for i in payload if i["op"] == "node"}
 
-    # 3. extra nodes referenced by curated edges
-    for label, nid, name in llm.EXTRA_NODES:
-        payload.append({"op": "node", "label": label, "id": nid,
-                        "props": {"name": name, "kind": label}})
+    # 2. LLM-derived assertions, aligned onto canonical ids
+    llm_edges, aliases = llm.canonicalise(llm_edges, known)
 
-    # 4. LLM-slice edges (already validated) -- skip those duplicating curated
-    curated_keys = {(a["subject"], a["predicate"], a["object"]) for a in llm.curated()}
+    seen: set[tuple] = set()
     for e in llm_edges:
-        if (e["subject"], e["predicate"], e["object"]) in curated_keys:
+        key = (e["subject"], e["predicate"], e["object"])
+        if key in seen:
             continue
-        ev = EV.build(e["source"], e["line"], e["authority"])
+        seen.add(key)
+        ev = EV.build(e["source"], e["line"], e["authority"],
+                      e.get("evidence_text") or None)
         if ev is None:
             rejects.append({**e, "origin": "llm", "reason": "evidence build failed"})
             continue
         aid = f"llm:{e['predicate']}:{e['subject']}->{e['object']}:{e['source']}:{e['line']}"
         payload.append({"op": "evidence", **ev})
-        payload.append({"op": "edge", "subject": e["subject"], "predicate": e["predicate"],
-                        "object": e["object"], "aid": aid, "authority": e["authority"],
+        payload.append({"op": "edge", "subject": e["subject"],
+                        "predicate": e["predicate"], "object": e["object"],
+                        "aid": aid, "authority": e["authority"],
                         "evidence": [ev["id"]], "state": "candidate",
                         "valid_from": e["valid_from"], "valid_to": e["valid_to"],
                         "props": e.get("props", {})})
+
     rejects.extend({"origin": "llm", **r} for r in llm_rejects)
+    if aliases:
+        (ROOT / "ingest" / "aliases.json").write_text(
+            json.dumps(aliases, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"entity alignment: {len(aliases)} id variants merged onto canonical ids")
     return payload, rejects
 
 
@@ -124,8 +126,9 @@ def main(use_llm=True):
 
     payload, rejects = build_payload(llm_edges, llm_rejects)
 
-    # ensure Person nodes exist for person IDs referenced by curated/LLM edges
-    from .labeler import label_of, roster_names
+    # ensure Person nodes exist for roster names referenced by LLM edges
+    from .labeler import roster_names
+
     known = {i["id"] for i in payload if i["op"] == "node"}
     roster = roster_names()
     for item in payload:

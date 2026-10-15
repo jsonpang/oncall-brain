@@ -9,6 +9,8 @@ errors. The file is the only source of PASS counts; run it from the repo root:
 from __future__ import annotations
 
 import datetime
+import hashlib
+import json
 import re
 import sys
 from pathlib import Path
@@ -99,6 +101,72 @@ def _norm(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", s.lower()).strip()
 
 
+# The answer template always contains a "## Conflicts / Superseded" heading, so
+# keyword presence says nothing about which state the answer actually reports.
+# The state is therefore judged semantically (see _llm_detect_status).
+ANSWER_STATES = ["applicable", "insufficient_context", "conflict", "superseded",
+                 "stale", "not_found"]
+
+_STATUS_JUDGE = """You are labelling which answer-state a support answer actually reports.
+
+QUESTION: {question}
+
+ANSWER:
+{answer}
+
+STATES:
+- applicable: the material does answer the question and a concrete answer is given.
+- insufficient_context: an answer exists but needs a condition the asker did not give.
+- conflict: the answer's point is that two or more sources disagree on the same
+  question and it lays them out side by side without picking one.
+- superseded: the answer's point is that the practice being asked about has been
+  replaced; it gives the current rule plus the old one and the effective date.
+- stale: the answer is available but flagged as possibly out of date.
+- not_found: the material has no answer and the answer says so.
+
+Careful:
+- An answer that MENTIONS a conflict or a superseded item in passing still
+  reports `applicable` if its actual point is a concrete answer to the question.
+- A section heading alone is not a claim.
+- `superseded` and `conflict` only win when that is what the answer is ABOUT.
+
+Reply with JSON only: {{"state": "<one of the six state names>"}}
+"""
+
+
+def _llm_detect_status(question: str, answer: str) -> str:
+    """Which answer-state the answer actually conveys (semantic, cached)."""
+    if not answer.strip():
+        return "not_found"
+    payload = question + "||" + answer
+    return _cached("status", payload,
+                   lambda: _llm_detect_status_uncached(question, answer))
+
+
+def _llm_detect_status_uncached(question: str, answer: str) -> str:
+    try:
+        import os
+
+        import openai
+        from dotenv import load_dotenv
+
+        load_dotenv(ROOT / ".env")
+        client = openai.OpenAI(base_url=os.environ["LLM_BASE_URL"],
+                               api_key=os.environ["LLM_API_KEY"])
+        resp = client.chat.completions.create(
+            model=os.environ.get("LLM_JUDGE_MODEL") or os.environ.get("LLM_MODEL"),
+            messages=[{"role": "user", "content": _STATUS_JUDGE.format(
+                question=question, answer=answer[:6000])}],
+            temperature=0.0, response_format={"type": "json_object"})
+        data = json.loads(resp.choices[0].message.content or "{}")
+        state = str(data.get("state", "")).strip()
+        if state in ANSWER_STATES:
+            return state
+    except Exception:  # noqa: BLE001 - fall back to the lexical signal
+        pass
+    return "not_found" if _says_not_found(answer) else "applicable"
+
+
 def _evidence_cited(answer: str, gold_evidence: list[str]) -> list[str]:
     locs = {e.rsplit(":", 1)[-1] for e in gold_evidence}
     cited = set(re.findall(r"(\d{1,4})\]", answer)) | set(
@@ -171,6 +239,74 @@ def _count_point_hits(q: dict, answer: str) -> tuple[int, list[bool]]:
     return sum(1 for f in flags if f), flags
 
 
+_CARRIES_JUDGE = """You are checking whether an answer carries a specific kind of content.
+
+QUESTION: {question}
+
+ANSWER:
+{answer}
+
+Does the answer SUBSTANTIVELY carry {claim}?
+
+Careful:
+- A markdown heading alone is not content ("## Conflicts / Superseded" counts
+  for nothing).
+- "No conflict" / "nothing superseded" does NOT carry it.
+- The content must actually be stated: for supersession, the old rule AND the
+  replacement AND when the change took effect; for conflict, the two competing
+  positions with their sources/authority.
+
+Reply with JSON only: {{"carries": true/false}}
+"""
+
+_CARRIES_CLAIMS = {
+    "superseded": "a supersession chain: the rule/practice being asked about was "
+                  "replaced, naming the old one, the current replacement and the "
+                  "effective date",
+    "conflict": "a conflict: two or more competing answers to the same question, "
+                "laid out with their sources or authority levels rather than "
+                "silently resolved",
+}
+
+
+def _llm_carries(kind: str, question: str, answer: str) -> bool:
+    """Does the answer substantively carry a supersession chain / a conflict?"""
+    if not answer.strip():
+        return False
+    payload = f"{kind}||{question}||{answer}"
+    return _cached("carries", payload,
+                   lambda: _llm_carries_uncached(kind, question, answer))
+
+
+def _llm_carries_uncached(kind: str, question: str, answer: str) -> bool:
+    try:
+        import os
+
+        import openai
+        from dotenv import load_dotenv
+
+        load_dotenv(ROOT / ".env")
+        client = openai.OpenAI(base_url=os.environ["LLM_BASE_URL"],
+                               api_key=os.environ["LLM_API_KEY"])
+        resp = client.chat.completions.create(
+            model=os.environ.get("LLM_JUDGE_MODEL") or os.environ.get("LLM_MODEL"),
+            messages=[{"role": "user", "content": _CARRIES_JUDGE.format(
+                question=question, answer=answer[:6000],
+                claim=_CARRIES_CLAIMS[kind])}],
+            temperature=0.0, response_format={"type": "json_object"})
+        return bool(json.loads(resp.choices[0].message.content or "{}").get("carries"))
+    except Exception:  # noqa: BLE001 - fail open; the strict label still decides
+        return False
+
+
+def _supersession_evidence(question: str, answer: str) -> bool:
+    return _llm_carries("superseded", question, answer)
+
+
+def _conflict_evidence(question: str, answer: str) -> bool:
+    return _llm_carries("conflict", question, answer)
+
+
 def _says_not_found(answer: str) -> bool:
     """Did the answer actually declare there is no answer in the material?
 
@@ -198,21 +334,32 @@ def judge(q: dict, res: dict) -> dict:
     citations = res["inspect"]["citations"]
     ev_hit = _evidence_cited(answer, q["evidence"])
 
-    # status detection from what the answer actually says
-    says_not_found = _says_not_found(answer)
-    mentions_superseded = "superseded" in a_norm or "supersede" in a_norm
-    mentions_conflict = "conflict" in a_norm
-    detected = "applicable"
-    if says_not_found:
-        detected = "not_found"
-    elif mentions_conflict:
-        detected = "conflict"
-    elif mentions_superseded:
-        detected = "superseded"
+    # Status: which state the answer actually reports, judged semantically (a
+    # keyword scan misreads every answer, because the answer template always
+    # contains a "## Conflicts / Superseded" heading whether or not the answer
+    # is about a conflict or a supersession).
+    detected = _llm_detect_status(q["question"], answer)
+    carries_superseded = bool(_supersession_evidence(q["question"], answer))
+    carries_conflict = bool(_conflict_evidence(q["question"], answer))
 
+    # The card records the state the answer must *convey*, and an answer can
+    # convey a state without leading with its label -- e.g. Q9's answer gives
+    # the current submission route and reports the superseded email rule with
+    # its replacement and date. So the expected state is satisfied either by
+    # the reported state or by the answer genuinely carrying that state's
+    # substance. What is never accepted is the reverse: an answer that says
+    # not_found where the material does answer, or vice versa.
+    substance = {"superseded": carries_superseded, "conflict": carries_conflict}
     status_ok = (expected == detected) or (
-        expected in ("conflict", "superseded") and detected == "applicable"
-        and (mentions_superseded or mentions_conflict))
+        expected in substance and substance[expected]
+        and detected in ("applicable", expected, "insufficient_context"))
+
+    # Hard behaviour 1: never fabricate. Where the card says the material has
+    # no answer, the answer must actually declare that.
+    fabrication = expected == "not_found" and detected != "not_found"
+    # Hard behaviour 2: never give up. Where the card says the material does
+    # answer, an answer that reports not_found is wrong however it got there.
+    gave_up = expected != "not_found" and detected == "not_found"
 
     # point hits: is each gold point substantively present in the answer?
     hits, point_detail = _count_point_hits(q, answer)
@@ -220,11 +367,16 @@ def judge(q: dict, res: dict) -> dict:
     forbidden_hits = [f for f in q["forbidden"]
                       if _forbidden_present(f, answer, q["question"])]
 
-    passed = status_ok and not forbidden_hits and hits >= max(
-        1, (len(q["points"]) + 1) // 2) and (bool(citations) or expected == "not_found")
+    passed = (status_ok and not forbidden_hits and not fabrication
+              and not gave_up and hits >= max(1, (len(q["points"]) + 1) // 2)
+              and (bool(citations) or expected == "not_found"))
 
     reasons = []
-    if not status_ok:
+    if fabrication:
+        reasons.append("fabricated an answer where the card says not_found")
+    if gave_up:
+        reasons.append("reported not_found where the material does answer")
+    if not status_ok and not (fabrication or gave_up):
         reasons.append(f"status mismatch (expected {expected}, answer reads {detected})")
     if forbidden_hits:
         reasons.append("forbidden content present")
@@ -236,6 +388,9 @@ def judge(q: dict, res: dict) -> dict:
     return {"status_ok": status_ok, "detected": detected, "hits": hits,
             "total_points": len(q["points"]), "point_detail": point_detail,
             "forbidden_hits": forbidden_hits,
+            "carries_superseded": carries_superseded,
+            "carries_conflict": carries_conflict,
+            "fabrication": fabrication, "gave_up": gave_up,
             "evidence_hit": ev_hit, "citations": citations,
             "passed": passed, "reason": "; ".join(reasons) or "ok"}
 
@@ -375,7 +530,9 @@ def render(qs: list[dict], results: list[dict], stats: dict, model: str) -> str:
             "",
             f"**Question**: {q['question']}",
             "",
-            f"- Expected state: `{q['expected_status']}` / detected: `{j['detected']}`",
+            f"- Expected state: `{q['expected_status']}` / detected: `{j['detected']}`"
+            f" (supersession chain: {'yes' if j['carries_superseded'] else 'no'},"
+            f" conflict laid out: {'yes' if j['carries_conflict'] else 'no'})",
             f"- Points hit: {j['hits']}/{j['total_points']}",
             f"- Forbidden errors: {len(j['forbidden_hits'])}"
             + (f" — {j['forbidden_hits']}" if j["forbidden_hits"] else ""),

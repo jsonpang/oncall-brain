@@ -316,6 +316,46 @@ def _tickets():
                    "valid_from": t["submission_date"], "state": "candidate"}
 
 
+def roster_names_for_vocab() -> set[str]:
+    """Person ids the structured sources establish (roster + team/routing tables)."""
+    import json
+
+    raw = (EV.ROOT / "corpus/org/contacts_roster.json").read_text(encoding="utf-8")
+    return {p["name"] for p in json.loads(raw)}
+
+
+def module_ids() -> set[str]:
+    """MOD-xx ids from the knowledge-base registry (the deterministic source)."""
+    import re
+
+    out = set()
+    for ln in EV.lines("corpus/docs/08-module-knowledge-base-registry.md"):
+        m = re.match(r"\|\s*(MOD-\d+)\s*\|", ln)
+        if m and m.group(1) != "Module ID":
+            out.add(m.group(1))
+    return out
+
+
+def resource_ids() -> set[str]:
+    """Resource ids the structured sources establish (KB pages + named forms)."""
+    out: set[str] = set()
+    src = "corpus/docs/08-module-knowledge-base-registry.md"
+    import re
+
+    for ln in EV.lines(src):
+        m = re.match(r"\|\s*(MOD-\d+)\s*\|\s*([^|]+?)\s*\|", ln)
+        if m and m.group(1) != "Module ID":
+            out.add(f"Knowledge Hub - {m.group(1)}")
+    out.update({
+        "Sentinel Desk", "Unified Gateway SSO", "Unified Gateway Portal",
+        "Internal Operations Reporting Portal", "Non-Ticket Issue Register",
+        "Production Incident Registration Form", "PulseVPN Renewal Request Form",
+        "Channel-General-OpsL1L2", "Channel-CICD-L1-L2-Collaboration",
+        "Channel-OpsSupervision", "Channel-TopSeverity-Escalations",
+    })
+    return out
+
+
 def extract():
     """Run all deterministic extractors; return (payload, rejects)."""
     payload, rejects = [], []
