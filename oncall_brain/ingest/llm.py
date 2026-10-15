@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 
@@ -31,8 +32,6 @@ CACHE_DIR = Path(__file__).resolve().parents[2] / "ingest" / "cache"
 # LLM client
 # --------------------------------------------------------------------------
 def _llm():
-    import os
-
     import openai
     from ..db import ROOT
 
@@ -253,6 +252,24 @@ def curated():
         authority="observation", valid_from="2026-08-10")
     add("Procedure:Informal_Chat_Escalation", "RECEIVED_BY",
         "Colin Marsh", src, 27, authority="observation", valid_from="2026-08-10")
+    # The informal path is the counterpart of the official one: both are
+    # described together in Doc 01 §5.1, so link them explicitly -- otherwise
+    # "escalate to L2" queries never surface the informal reality.
+    src = "corpus/docs/01-service-closed-loop-mechanism-v3.1.md"
+    add("Procedure:Escalate_to_Tier2", "HAS_STEP", "Stage:Informal_Diagnosis_Liaison",
+        src, 82, authority="formal_rule", valid_from="2026-01-01")
+    add("Stage:Informal_Diagnosis_Liaison", "USES_RESOURCE",
+        "Channel-CICD-L1-L2-Collaboration", src, 82,
+        authority="formal_rule", valid_from="2026-01-01")
+    # PERFORMED_BY/RECEIVED_BY are Procedure-only, so the liaison target hangs
+    # off the informal procedure itself, which the step points at.
+    add("Procedure:Informal_Chat_Escalation", "RECEIVED_BY",
+        "Role:Pipeline Engine Tier 2 Lead", src, 82,
+        authority="formal_rule", valid_from="2026-01-01")
+    src = _chat_line("chat_2026-08-10.md")
+    add("Procedure:Informal_Chat_Escalation", "GOVERNED_BY",
+        "Rule:Formal_Transfer_Within_2_Hours", src, 40,
+        authority="observation", valid_from="2026-08-10")
 
     # --- Q7 / Q13: intake claim SLA -------------------------------------------
     src = "corpus/docs/02-ops-workflow-training-guide.md"
@@ -475,6 +492,7 @@ EXTRA_NODES = [
     ("WorkStage", "Stage:Product_Backlog_Sync", "Sync into Product Management backlog"),
     ("WorkStage", "Stage:L3_Backlog", "Transfer to L3 engineering backlog"),
     ("WorkStage", "Stage:L2_Staging_Verification", "L2 verifies patch on staging"),
+    ("WorkStage", "Stage:Informal_Diagnosis_Liaison", "Informal L1-L2 chat liaison for rapid diagnosis (Doc 01 section 5.1)"),
     ("Procedure", "Procedure:Split_Mixed_Ticket", "Split mixed defect+requirement ticket"),
     ("Rule", "Rule:Split_Defect_And_Feature_Ticket", "A ticket containing both defect and feature request MUST be split into two tickets"),
     ("Procedure", "Procedure:Weekly_Report_Submission", "Weekly report submission"),

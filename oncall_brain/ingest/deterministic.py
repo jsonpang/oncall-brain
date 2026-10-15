@@ -13,6 +13,7 @@ docs are extracted by the LLM pass (llm.py); this file never guesses.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from .. import schema as S
 from . import evidence as EV
@@ -71,12 +72,18 @@ def _roster():
     people = json.loads(raw)
     for v in VENDORS:
         yield _vendor(v)
-    # find the line each person's record starts on for evidence
+    # Find the line each person's record starts on, for evidence. The roster is
+    # pretty-printed, so records begin with a `"name":` member line rather than
+    # a one-line JSON object.
     lines = raw.splitlines()
     starts = {}
     for i, ln in enumerate(lines, 1):
-        if ln.lstrip().startswith('{"name"'):
-            nm = json.loads(ln)["name"]
+        stripped = ln.strip()
+        if stripped.startswith('"name"'):
+            try:
+                nm = json.loads("{" + stripped.rstrip(",") + "}")["name"]
+            except Exception:
+                continue
             starts[nm] = i
     n = 0
     for p in people:
@@ -89,7 +96,7 @@ def _roster():
         vmap = {v["name"]: v for v in VENDORS}
         vn = p.get("vendor")
         if vn in vmap:
-            yield _ev(src, starts[name], "formal_rule", json.dumps(p, ensure_ascii=False))
+            yield _ev(src, starts[name], "formal_rule", _roster_excerpt(p, starts[name]))
             yield _edge(name, "EMPLOYED_BY", vn, src, starts[name],
                         authority="formal_rule", valid_from="2026-01-01")
         # team membership via functional role text
@@ -104,9 +111,23 @@ def _roster():
         elif role.startswith("L2"):
             team = "Operations Engineering Team (L2)"
         if team:
-            yield _ev(src, starts[name], "formal_rule", json.dumps(p, ensure_ascii=False))
+            yield _ev(src, starts[name], "formal_rule", _roster_excerpt(p, starts[name]))
             yield _edge(name, "MEMBER_OF", team, src, starts[name],
                         authority="formal_rule", valid_from="2026-01-01")
+
+
+def lines_of(path: str) -> list[str]:
+    return Path(path).read_text(encoding="utf-8").splitlines()
+
+
+def _roster_excerpt(p: dict, line_no: int) -> str:
+    """Excerpt for a pretty-printed roster record.
+
+    Evidence validation requires the quoted text to appear on the cited line,
+    so use that single `"name": ...` line rather than the re-serialised record,
+    which spans many lines.
+    """
+    return lines_of(str(EV.ROOT / "corpus/org/contacts_roster.json"))[line_no - 1].strip()
 
 
 def _ev(source, line_no, authority, excerpt=None):

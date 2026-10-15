@@ -22,9 +22,21 @@ using a knowledge graph of its support organisation. You have four read-only too
 
 HARD RULES:
 1. Use ONLY ids returned by a previous tool call. Never invent an id.
-2. Budget: at most {max_calls} tool calls and {max_rel} relation queries total. Plan accordingly; if you run out, say what you could not check.
-3. Start with describe_ontology only if you are unsure which predicates exist, then search_knowledge to resolve ids, then read_knowledge / query_relations.
-4. Facts come only from assertions returned by the tools. If an assertion is not visible, it is not known -- do not fill it in from general knowledge.
+2. Budget: at most {max_calls} tool calls and {max_rel} relation queries total.
+   Spend it well: go straight to search_knowledge with a short distinctive
+   keyword (a module name, person surname, form name, or error string), then
+   read the entity. Do NOT call describe_ontology again if you already know the
+   predicates, and do not retry a failed search with near-identical wording --
+   each call is non-refundable.
+3. Prefer read_knowledge on a promising entity over repeated searching: a single
+   read shows every visible assertion touching it, including all predicates.
+   Use query_relations when you need to follow a chain past the first hop.
+4. Facts come only from assertions returned by the tools. If an assertion is not
+   visible, it is not known -- do not fill it in from general knowledge.
+5. Answer the question asked and name the specifics the questioner needs: the
+   actual person, the actual channel, form or path, the actual deadline and
+   number. A correct-but-generic answer ("use the standard procedure") is a
+   failure. If several people are involved, say which one does what.
 5. MAINTAINED_BY proves only who curates a document. It is NEVER an escalation or troubleshooting target. The module escalation owner is TECH_LEAD_OF.
 6. When several visible values occupy the same slot, present them all ranked by authority (formal_rule > practice > observation) and label it a conflict. Do not silently pick one.
 7. A rule targeted by SUPERSEDES is superseded: give the current rule, then state the old one, the replacement, and the effective date.
@@ -153,17 +165,31 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
         # Always close out with a written answer, whether the budget ran out or
         # the last turn ended on tool calls: an empty answer is useless to the
         # reader and unjudgeable by the eval.
-        stop_reason = stop_reason if stop_reason != "completed" else "completed"
-        try:
-            resp = client.chat.completions.create(
-                model=model, messages=messages + [
-                    {"role": "user",
-                     "content": "Tool budget is exhausted. Write the final answer "
-                                "now using only what the tool results showed; put "
-                                "anything unverified in Gaps."}], temperature=0.0)
-            answer = resp.choices[0].message.content or ""
-        except Exception as e:  # noqa: BLE001 - surfaced in the report
-            answer = f"(answer generation failed: {type(e).__name__}: {e})"
+        prompt = ("Tool budget is exhausted. Write the final answer now using "
+                  "only what the tool results showed; put anything unverified "
+                  "in Gaps.")
+        messages.append({"role": "user", "content": prompt})
+        # Some providers reject a long accumulated tool transcript with a 400.
+        # Retry once with tools disabled, then once with a trimmed transcript,
+        # before giving up -- losing a question to a provider quake should not
+        # be read as "the graph had no answer".
+        attempts = [
+            dict(model=model, messages=messages, temperature=0.0),
+            dict(model=model, messages=[messages[0], {"role": "user",
+                 "content": question}, {"role": "user", "content": prompt}],
+                 temperature=0.0),
+        ]
+        for kwargs in attempts:
+            try:
+                resp = client.chat.completions.create(**kwargs)
+                answer = resp.choices[0].message.content or ""
+                if answer:
+                    break
+            except Exception:  # noqa: BLE001 - try the next strategy
+                continue
+        if not answer:
+            answer = ("(answer generation failed after retries: no response from "
+                      "the model provider)")
 
     if trace is not None:
         trace.extend(log)

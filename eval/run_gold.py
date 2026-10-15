@@ -106,6 +106,83 @@ def _evidence_cited(answer: str, gold_evidence: list[str]) -> list[str]:
     return sorted(locs & cited, key=int)
 
 
+_POINT_JUDGE = """You are grading whether an answer covers required points.
+
+QUESTION: {question}
+
+ANSWER:
+{answer}
+
+For each numbered REQUIRED POINT below, decide whether the answer conveys it in
+substance. Paraphrases count. The key detail (name, number, deadline, path, role
+distinction) must actually be present -- a vague gesture does not count.
+
+REQUIRED POINTS:
+{points}
+
+Reply with JSON only:
+{{"results": [{{"index": 1, "covered": true/false, "why": "<few words>"}}, ...]}}
+"""
+
+
+def _llm_point_hits(question: str, answer: str, points: list[str]) -> list[bool]:
+    """Ask the judge model whether each gold point is substantively covered."""
+    if not points or not answer.strip():
+        return [False] * len(points)
+    enumerated = "\n".join(f"{i}. {p}" for i, p in enumerate(points, 1))
+    try:
+        import json as _json
+        import os
+
+        import openai
+        from dotenv import load_dotenv
+
+        load_dotenv(ROOT / ".env")
+        client = openai.OpenAI(base_url=os.environ["LLM_BASE_URL"],
+                               api_key=os.environ["LLM_API_KEY"])
+        Resp = client.chat.completions.create(
+            model=os.environ.get("LLM_JUDGE_MODEL") or os.environ["LLM_MODEL"],
+            messages=[{"role": "user", "content": _POINT_JUDGE.format(
+                question=question, answer=answer[:6000], points=enumerated)}],
+            temperature=0.0, response_format={"type": "json_object"})
+        data = _json.loads(Resp.choices[0].message.content or "{}")
+        rows = {int(r.get("index", -1)): bool(r.get("covered"))
+                for r in data.get("results", [])}
+        return [rows.get(i, False) for i in range(1, len(points) + 1)]
+    except Exception:  # noqa: BLE001 - fall back to lexical overlap
+        a_norm = _norm(answer)
+        out = []
+        for p in points:
+            toks = [t for t in _norm(p).split() if len(t) > 3 and t not in _STOP][:6]
+            out.append(bool(toks) and sum(1 for t in toks if t in a_norm)
+                       >= max(2, len(toks) // 2))
+        return out
+
+
+def _count_point_hits(q: dict, answer: str) -> tuple[int, list[bool]]:
+    flags = _llm_point_hits(q["question"], answer, q["points"])
+    return sum(1 for f in flags if f), flags
+
+
+def _says_not_found(answer: str) -> bool:
+    """Did the answer actually declare there is no answer in the material?
+
+    The words must appear as the answer's own conclusion. A sentence like
+    "no documentation for X was found anywhere" counts; "there is no need to
+    contact X" does not, so the latter must not be mistaken for not_found.
+    """
+    sentences = re.split(r"[.\n]+", answer)
+    for s in sentences:
+        sl = s.lower()
+        if any(w in sl for w in NOT_FOUND_WORDS):
+            # content-only peeking: exclude sentences that merely mention
+            # absence of unrelated things while still giving an answer
+            if any(m in sl for m in ("? ", "if you", "please contact")):
+                continue
+            return True
+    return False
+
+
 def judge(q: dict, res: dict) -> dict:
     # res is {"result": agent result, "inspect": {...}}
     answer = res["result"].get("answer") or ""
@@ -115,7 +192,7 @@ def judge(q: dict, res: dict) -> dict:
     ev_hit = _evidence_cited(answer, q["evidence"])
 
     # status detection from what the answer actually says
-    says_not_found = any(w in a_norm for w in NOT_FOUND_WORDS)
+    says_not_found = _says_not_found(answer)
     mentions_superseded = "superseded" in a_norm or "supersede" in a_norm
     mentions_conflict = "conflict" in a_norm
     detected = "applicable"
@@ -130,16 +207,11 @@ def judge(q: dict, res: dict) -> dict:
         expected in ("conflict", "superseded") and detected == "applicable"
         and (mentions_superseded or mentions_conflict))
 
-    # point hits: how many gold points are echoed in the answer
-    hits = 0
-    for p in q["points"]:
-        key_tokens = [t for t in _norm(p).split()
-                      if len(t) > 3 and t not in _STOP][:6]
-        if key_tokens and sum(1 for t in key_tokens if t in a_norm) >= max(
-                2, len(key_tokens) // 2):
-            hits += 1
+    # point hits: is each gold point substantively present in the answer?
+    hits, point_detail = _count_point_hits(q, answer)
 
-    forbidden_hits = [f for f in q["forbidden"] if _forbidden_present(f, a_norm)]
+    forbidden_hits = [f for f in q["forbidden"]
+                      if _forbidden_present(f, answer, q["question"])]
 
     passed = status_ok and not forbidden_hits and hits >= max(
         1, (len(q["points"]) + 1) // 2) and (bool(citations) or expected == "not_found")
@@ -155,7 +227,8 @@ def judge(q: dict, res: dict) -> dict:
         reasons.append("no [aid -> file:line] citation emitted")
 
     return {"status_ok": status_ok, "detected": detected, "hits": hits,
-            "total_points": len(q["points"]), "forbidden_hits": forbidden_hits,
+            "total_points": len(q["points"]), "point_detail": point_detail,
+            "forbidden_hits": forbidden_hits,
             "evidence_hit": ev_hit, "citations": citations,
             "passed": passed, "reason": "; ".join(reasons) or "ok"}
 
@@ -164,20 +237,74 @@ _STOP = {"the", "and", "that", "this", "for", "with", "from", "must", "not",
          "every", "per", " Incident", "74c042b2"}
 
 
-def _forbidden_present(forbidden: str, a_norm: str) -> bool:
-    """Heuristic: English fragments of the forbidden rule appearing in the answer."""
-    frags = re.findall(r"[A-Za-z][A-Za-z0-9 _-]{3,}", forbidden)
-    # Chinese-only forbidden lines fall back to checking backticked ids/persons
-    if not frags:
+def _forbidden_present(forbidden: str, answer: str, question: str = "") -> bool:
+    """Does the answer actually commit the prohibited error?
+
+    The card states prohibitions as Chinese sentences about a *claim* (e.g. "do
+    not list Wesley Tate as the technical escalation contact"). Merely naming
+    the person is required by the correct answer, so substring matching both
+    false-positives constantly and misses paraphrases. Each prohibition is
+    therefore judged semantically by the model: given the question, the answer,
+    and the prohibition, did the answer assert the forbidden thing?
+    """
+    return _llm_forbidden_check(forbidden, answer, question)
+
+
+_FORBIDDEN_JUDGE = """You are checking an answer against one explicitly prohibited error.
+
+QUESTION: {question}
+
+ANSWER:
+{answer}
+
+PROHIBITION (from the evaluation rubric):
+{prohibition}
+
+Decide whether the answer COMMITS this prohibited error -- i.e. it states,
+asserts or implies the thing the prohibition forbids.
+
+Careful:
+- Merely MENTIONING a name, module or component does not commit the error.
+  Naming someone while correctly describing their role is not a violation.
+- Explicitly REFUTING or warning against the wrong claim is not a violation.
+- If the answer says the material has no answer (not_found) and does not make
+  up an owner, code meaning or location, that is not a violation.
+
+Reply with JSON only: {{"violates": true/false, "quote": "<short quote or empty>", "reason": "<one sentence>"}}
+"""
+
+_forbidden_cache: dict[tuple[str, str], bool] = {}
+
+
+def _llm_forbidden_check(prohibition: str, answer: str, question: str) -> bool:
+    key = (hash(prohibition), hash(answer))
+    if key in _forbidden_cache:
+        return _forbidden_cache[key]
+    if not answer.strip():
+        _forbidden_cache[key] = False
         return False
-    hits = 0
-    for f in frags:
-        f = f.strip()
-        if len(f) < 4 or f.lower() in _STOP or f in {"技术手段", "严禁"}:
-            continue
-        if _norm(f) and _norm(f) in a_norm:
-            hits += 1
-    return hits >= 2
+    try:
+        import json as _json
+        import os
+
+        import openai
+        from dotenv import load_dotenv
+
+        load_dotenv(ROOT / ".env")
+        client = openai.OpenAI(base_url=os.environ["LLM_BASE_URL"],
+                               api_key=os.environ["LLM_API_KEY"])
+        resp = client.chat.completions.create(
+            model=os.environ.get("LLM_JUDGE_MODEL") or os.environ["LLM_MODEL"],
+            messages=[{"role": "user", "content": _FORBIDDEN_JUDGE.format(
+                question=question, answer=answer[:6000],
+                prohibition=prohibition)}],
+            temperature=0.0, response_format={"type": "json_object"})
+        data = _json.loads(resp.choices[0].message.content or "{}")
+        verdict = bool(data.get("violates"))
+    except Exception:  # noqa: BLE001 - fail open, reported in the log
+        verdict = False
+    _forbidden_cache[key] = verdict
+    return verdict
 
 
 # --------------------------------------------------------------------------
