@@ -1,0 +1,270 @@
+[
+  {
+    "name": "Arthur Vance",
+    "vendor": "Synthetix Solutions",
+    "domain": "Development Domain",
+    "role": "L2",
+    "modules": [
+      "Field Support",
+      "Continuous Testing (Agent)",
+      "Knowledge Hub",
+      "Mobile Build (Deployment)"
+    ],
+    "lead": "Marcus Sterling",
+    "notes": "Field Support Group Lead; handover of Mobile Build Agent to Wyatt Lawson in progress"
+  },
+  {
+    "name": "Marcus Sterling",
+    "vendor": "Synthetix Solutions",
+    "domain": "Development Domain",
+    "role": "Operations Lead",
+    "modules": [
+      "All Modules",
+      "Architecture & Operations"
+    ],
+    "lead": "OmniGlobal Steering Committee",
+    "notes": "Operations Lead supervising 9 technical personnel"
+  },
+  {
+    "name": "Julian Thorne",
+    "vendor": "Strata Technologies",
+    "domain": "Management Domain",
+    "role": "Operations Lead",
+    "modules": [
+      "Sentinel Queue",
+      "Frontline Operations"
+    ],
+    "lead": "OmniGlobal Steering Committee",
+    "notes": "Operations Lead supervising 11 support personnel"
+  },
+  {
+    "name": "Victor Hansen",
+    "vendor": "Northwind Field Services",
+    "domain": "Management Domain",
+    "role": "Operations Lead",
+    "modules": [
+      "Field Support",
+      "Regional Operations"
+    ],
+    "lead": "OmniGlobal Steering Committee",
+    "notes": "Operations Lead supervising 8 technical personnel"
+  },
+  {
+    "name": "Sophia Evans",
+    "vendor": "Strata Technologies",
+    "domain": "Management Domain",
+    "role": "Governance Lead",
+    "modules": [
+      "Quality Governance",
+      "Training & Enablement"
+    ],
+    "lead": "Rachel Moore",
+    "notes": "Lead auditor for ticket compliance; Director of Training Team"
+  },
+  {
+    "name": "Colin Marsh",
+    "vendor": "Synthetix Solutions",
+    "domain": "Development Domain",
+    "role": "L2",
+    "modules": [
+      "Pipeline Engine"
+    ],
+    "lead": "Marcus Sterling",
+    "notes": "Primary L2 owner for Pipeline Engine"
+  },
+  {
+    "name": "Lucas Vance",
+    "vendor": "Synthetix Solutions",
+    "domain": "Development Domain",
+    "role": "L2",
+    "modules": [
+      "Continuous Deployment (CD)"
+    ],
+    "lead": "Marcus Sterling",
+    "notes": "Primary L2 owner for Continuous Deployment"
+  },
+  {
+    "name": "Wyatt Lawson",
+    "vendor": "Synthetix Solutions",
+    "domain": "Development Domain",
+    "role": "L2",
+    "modules": [
+      "Continuous Integration (CI)",
+      "Mobile Build (Deployment)"
+    ],
+    "lead": "Marcus Sterling",
+    "notes": "Primary L2 owner for CI; taking over Mobile Build Agent runner"
+  },
+  {
+    "name": "Wesley Tate",
+    "vendor": "Strata Technologies",
+    "domain": "Development Domain",
+    "role": "L2",
+    "modules": [
+      "Knowledge Hub",
+      "Quality Standards"
+    ],
+    "lead": "Vincent Brooks",
+    "notes": "Knowledge Hub curator and permission administrator"
+  },
+  {
+    "name": "Dominic Shaw",
+    "vendor": "Strata Technologies",
+    "domain": "Development Domain",
+    "role": "L1",
+    "modules": [
+      "Access Management",
+      "Admin Roles"
+    ],
+    "lead": "Rachel Moore",
+    "notes": "Gatekeeper for platform administrator role requests"
+  },
+  {
+    "name": "Luke Fischer",
+    "vendor": "Synthetix Solutions",
+    "domain": "Development Domain",
+    "role": "L1",
+    "modules": [
+      "Unified Gateway & Portal",
+      "Menu Permissions"
+    ],
+    "lead": "Eleanor Hughes",
+    "notes": "Primary contact for portal menu and UI authorization issues"
+  },
+  {
+    "name": "Ethan Drake [formerly Derek Ward]",
+    "vendor": "Northwind Field Services",
+    "domain": "Development Domain",
+    "role": "Field Specialist / L1",
+    "modules": [
+      "Field Support",
+      "Lakeside Delta",
+      "Silver Peak"
+    ],
+    "lead": "Victor Hansen",
+    "notes": "Assigned across regional territories; assumed Silver Peak on 2026-09-25"
+  },
+  {
+    "name": "Hannah Reed",
+    "vendor": "Synthetix Solutions",
+    "domain": "Development Domain",
+    "role": "Field Specialist / L1",
+    "modules": [
+      "Field Support",
+      "Northland Metro",
+      "Amber Valley"
+    ],
+    "lead": "Victor Hansen",
+    "notes": "Assigned across regional territories"
+  },
+  {
+    "name": "Owen Wright",
+    "vendor": "Synthetix Solutions",
+    "domain": "Development Domain",
+    "role": "Field Specialist / L1",
+    "modules": [
+      "Field Support",
+      "Pine Ridge",
+      "Iron Bay"
+    ],
+    "lead": "Victor Hansen",
+    "notes": "Assigned across regional territories; onboarded 2026-07-16"
+  },
+  {
+    "name": "Zachary Price",
+    "vendor": "Synthetix Solutions",
+    "domain": "Development Domain",
+    "role": "Field Specialist / L1",
+    "modules": [
+      "Field Support",
+      "Frost River",
+      "Riverland Basin"
+    ],
+    "lead": "Marcus Sterling",
+    "notes": "Assigned across regional territories; assumed additional territories on 2026-09-25"
+  },
+  {
+    "name": "Frank Stewart",
+    "vendor": "Northwind Field Services",
+    "domain": "Development Domain",
+    "role": "Field Specialist / L1",
+    "modules": [
+      "Field Support",
+      "Northern Plains",
+      "Emerald Coast"
+    ],
+    "lead": "Victor Hansen",
+    "notes": "Assigned across regional territories"
+  },
+  {
+    "name": "Sean Porter",
+    "vendor": "Synthetix Solutions",
+    "domain": "Development Domain",
+    "role": "Field Specialist / L1",
+    "modules": [
+      "Field Support",
+      "Golden Coast",
+      "Sunward Metro"
+    ],
+    "lead": "Marcus Sterling",
+    "notes": "Assigned across regional territories; replaced Walter Kane on 2026-09-03"
+  },
+  {
+    "name": "Wayne Douglas",
+    "vendor": "Synthetix Solutions",
+    "domain": "Development Domain",
+    "role": "L2",
+    "modules": [
+      "Artifact Repository",
+      "Shared Storage"
+    ],
+    "lead": "Marcus Sterling",
+    "notes": "Artifact registry owner and storage administrator"
+  },
+  {
+    "name": "Seth Miller [formerly Philip Dean]",
+    "vendor": "Strata Technologies (Sub-Contract)",
+    "domain": "Development Domain",
+    "role": "L1",
+    "modules": [
+      "Dev Workspace",
+      "Design Management"
+    ],
+    "lead": "Clara Oswald",
+    "notes": "Workspace environment and user manual owner"
+  },
+  {
+    "name": "Seraphina Lin",
+    "vendor": "Strata Technologies",
+    "domain": "Management Domain",
+    "role": "Governance / QA",
+    "modules": [
+      "Daily Check-In",
+      "Shift Roster"
+    ],
+    "lead": "Rachel Moore",
+    "notes": "Proctor for daily morning attendance and shift sign-ins"
+  },
+  {
+    "name": "Hazel Woods",
+    "vendor": "OmniGlobal Client Staff",
+    "domain": "Management Domain",
+    "role": "Client Project Lead",
+    "modules": [
+      "Engineering Projects Acceptance"
+    ],
+    "lead": "OmniGlobal Steering Committee",
+    "notes": "Client acceptance lead for infrastructure and engineering milestones"
+  },
+  {
+    "name": "Renee Yates",
+    "vendor": "OmniGlobal Client Staff",
+    "domain": "Management Domain",
+    "role": "Client Project Lead",
+    "modules": [
+      "Production Live-Net Projects Acceptance"
+    ],
+    "lead": "OmniGlobal Steering Committee",
+    "notes": "Client acceptance lead for production runtime systems"
+  }
+]
