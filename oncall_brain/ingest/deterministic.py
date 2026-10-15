@@ -24,8 +24,15 @@ def _month_floor(date: str) -> str:
     return date[:7] + "-01"
 
 
+def _territories():
+    for t in S.TERRITORIES:
+        yield {"op": "node", "label": "Territory", "id": t,
+               "props": {"name": t, "kind": "Territory"}}
+
+
 def _payload():
     """Yield op dicts (node / evidence / edge) to be batch-written."""
+    yield from _territories()
     yield from _roster()
     yield from _teams()
     yield from _routing()

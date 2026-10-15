@@ -26,8 +26,9 @@ def g():
 
 def wipe():
     db = FalkorDB(host=HOST, port=PORT)
-    if GRAPH_NAME.encode() in db.list_graphs() or GRAPH_NAME in [x.decode() if isinstance(x, bytes) else x for x in db.list_graphs()]:
-        db.delete_graph(GRAPH_NAME)
+    known = [x.decode() if isinstance(x, bytes) else x for x in db.list_graphs()]
+    if GRAPH_NAME in known:
+        db.select_graph(GRAPH_NAME).delete()
     globals()["_g"] = None
 
 
@@ -40,6 +41,21 @@ def ensure_indexes():
             g().query(q)
         except Exception:
             pass  # already exists
+
+
+def _infer_label(nid: str) -> str:
+    """Infer the graph label for an entity id (used to auto-create endpoints)."""
+    if ":" in nid:
+        prefix = nid.split(":", 1)[0]
+        mapping = {"Procedure": "Procedure", "Rule": "Rule", "Notice": "Notice",
+                   "Stage": "WorkStage", "Resource": "Resource", "Role": "Role"}
+        if prefix in mapping:
+            return mapping[prefix]
+    if any(nid.startswith(p) for p in ("Observation:", "Practice:")):
+        return "Rule"
+    from .ingest.labeler import label_of
+
+    return label_of(nid)
 
 
 def node(label: str, nid: str, **props) -> str:
@@ -68,16 +84,27 @@ def edge(subject: str, predicate: str, obj: str, *,
          state: str = "candidate", valid_from: str = "2026-01-01",
          valid_to: str | None = None, **props) -> None:
     """MERGE a relationship by aid and attach its properties + evidence edges."""
+    props = {k: v for k, v in props.items() if v is not None}
     props = {"aid": aid, "authority": authority, "state": state,
              "valid_from": valid_from, "valid_to": valid_to,
              "evidence": evidence_ids, **props}
     pq = ", ".join(f"r.{k} = ${k}" for k in props)
-    q = (f"MATCH (a:Entity {{id: $s}}), (b:Entity {{id: $o}}) "
+    # Auto-create missing endpoints. A plain MATCH-based MERGE silently writes
+    # nothing when an endpoint does not exist yet (payload ordering otherwise
+    # drops assertions with no error), so every edge declares the labels of its
+    # own endpoints and MERGEs them first.
+    slabel, olabel = _infer_label(subject), _infer_label(obj)
+    q = (f"MERGE (a:Entity:{slabel} {{id: $s}}) "
+         f"MERGE (b:Entity:{olabel} {{id: $o}}) "
          f"MERGE (a)-[r:{predicate} {{aid: $aid}}]->(b) "
-         f"SET {pq} "
-         "WITH r UNWIND $ev AS eid MATCH (e:Evidence {id: eid}) "
-         "MERGE (r)-[:EVIDENCE]->(e)")
-    g().query(q, {"s": subject, "o": obj, "aid": aid, "ev": evidence_ids, **props})
+         f"SET {pq}")
+    g().query(q, {"s": subject, "o": obj, "aid": aid, **props})
+    # Evidence is attached as the relationship's `evidence` property (verified
+    # ids), NOT as (rel)-[:EVIDENCE]->(e) edges: this FalkorDB build rejects
+    # creating an edge whose endpoints include a bound relationship variable
+    # ("The alias 'r' was specified for both a node and a relationship", also
+    # with CREATE / different alias names / re-MATCHing the relationship).
+    # Evidence nodes are still written separately, so tools can join by id.
 
 
 def batch_write(payload: list[dict]) -> None:
