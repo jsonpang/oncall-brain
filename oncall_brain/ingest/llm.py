@@ -49,6 +49,7 @@ def _llm():
     return openai.OpenAI(
         base_url=os.environ["LLM_BASE_URL"],
         api_key=os.environ["LLM_API_KEY"],
+        timeout=120, max_retries=1,
     )
 
 
@@ -242,8 +243,7 @@ Slice (line numbers in [ ] at line start, matching evidence_line):
             return out
         except Exception as e:  # noqa: BLE001 - retried, then reported as a count
             if attempt == 2:
-                print(f"  LLM slice failed ({source}): {type(e).__name__}: {e}")
-                return []
+                raise RuntimeError(f"LLM extraction failed: {type(e).__name__}") from None
     return []
 
 
@@ -307,7 +307,7 @@ def quote_matches(a: dict) -> bool:
 # --------------------------------------------------------------------------
 # ID canonicalisation (entity alignment by id / alias, design doc §5)
 # --------------------------------------------------------------------------
-_PREFIX_RE = re.compile(r"^(Procedure|Rule|Notice|Stage|Resource|Role|Person|Team|Module):")
+_PREFIX_RE = re.compile(r"^(Procedure|Rule|Notice|Stage|WorkStage|Resource|Role|Person|Team|Module|Vendor|Territory|Ticket):")
 
 
 def _split_id(nid: str) -> tuple[str, str]:
@@ -337,10 +337,11 @@ def canonicalise(edges: list[dict], known: set[str]) -> tuple[list[dict], dict[s
     otherwise the most frequent spelling (shortest on a tie).
     """
     clusters: dict[tuple[str, str], list[str]] = {}
-    for e in edges:
-        for nid in (e["subject"], e["object"]):
-            prefix, base = _split_id(str(nid))
-            clusters.setdefault((prefix, _norm_base(base)), []).append(str(nid))
+    ids = list(sorted(known)) + [str(e[k]) for e in edges for k in ("subject", "object")]
+    for nid in ids:
+        prefix, base = _split_id(nid)
+        kind = {"Stage": "WorkStage"}.get(prefix, prefix) if prefix else label_of(nid)
+        clusters.setdefault((kind, _norm_base(base)), []).append(nid)
 
     mapping: dict[str, str] = {}
     for (prefix, _), variants in clusters.items():

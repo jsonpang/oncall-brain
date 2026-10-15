@@ -5,6 +5,7 @@ Usage (from repo root): python -m oncall_brain.ingest.run [--no-llm]
 from __future__ import annotations
 
 import json
+import hashlib
 import sys
 from pathlib import Path
 
@@ -70,7 +71,7 @@ def run_llm_extraction(verbose=False):
                     edges.append(edge)
         if verbose:
             print(f"  {src}: done")
-    print(f"LLM: {n_calls} slice calls, {len(edges)} edges accepted, "
+    print(f"LLM: {n_calls} slices (including cache hits), {len(edges)} edges accepted, "
           f"{len(rejects)} rejected")
     return edges, rejects
 
@@ -88,25 +89,43 @@ def build_payload(llm_edges: list[dict], llm_rejects: list[dict]):
     # 2. LLM-derived assertions, aligned onto canonical ids
     llm_edges, aliases = llm.canonicalise(llm_edges, known)
 
-    seen: set[tuple] = set()
+    seen: dict[str, dict] = {}
     for e in llm_edges:
-        key = (e["subject"], e["predicate"], e["object"])
-        if key in seen:
-            continue
-        seen.add(key)
+        # Evidence line is not identity: identical claims in the same source
+        # accumulate evidence. Authority, conditions and dates remain distinct.
+        key = json.dumps({k: e.get(k) for k in (
+            "subject", "predicate", "object", "source", "authority",
+            "valid_from", "valid_to", "props")}, sort_keys=True, ensure_ascii=False)
         ev = EV.build(e["source"], e["line"], e["authority"],
                       e.get("evidence_text") or None)
         if ev is None:
             rejects.append({**e, "origin": "llm", "reason": "evidence build failed"})
             continue
-        aid = f"llm:{e['predicate']}:{e['subject']}->{e['object']}:{e['source']}:{e['line']}"
+        aid = "llm:" + hashlib.sha256(key.encode()).hexdigest()[:24]
         payload.append({"op": "evidence", **ev})
-        payload.append({"op": "edge", "subject": e["subject"],
+        if key in seen:
+            if ev["id"] not in seen[key]["evidence"]:
+                seen[key]["evidence"].append(ev["id"])
+            continue
+        assertion = {"op": "edge", "subject": e["subject"],
                         "predicate": e["predicate"], "object": e["object"],
                         "aid": aid, "authority": e["authority"],
                         "evidence": [ev["id"]], "state": "candidate",
                         "valid_from": e["valid_from"], "valid_to": e["valid_to"],
-                        "props": e.get("props", {})})
+                        "props": e.get("props", {})}
+        payload.append(assertion)
+        seen[key] = assertion
+
+    # Every LLM endpoint must be searchable by kind/name, not only roster people.
+    from .labeler import label_of
+    for e in llm_edges:
+        for nid in (e["subject"], e["object"]):
+            if nid not in known:
+                kind = label_of(nid)
+                name = llm._split_id(nid)[1].replace("_", " ")
+                payload.append({"op": "node", "label": kind, "id": nid,
+                                "props": {"kind": kind, "name": name}})
+                known.add(nid)
 
     rejects.extend({"origin": "llm", **r} for r in llm_rejects)
     if aliases:
@@ -117,28 +136,17 @@ def build_payload(llm_edges: list[dict], llm_rejects: list[dict]):
 
 
 def main(use_llm=True):
-    db.wipe()
-    db.ensure_indexes()
-
     llm_edges, llm_rejects = ([], [])
     if use_llm:
         llm_edges, llm_rejects = run_llm_extraction()
 
     payload, rejects = build_payload(llm_edges, llm_rejects)
+    if use_llm:
+        from .claims import annotate
+        annotate(payload)
 
-    # ensure Person nodes exist for roster names referenced by LLM edges
-    from .labeler import roster_names
-
-    known = {i["id"] for i in payload if i["op"] == "node"}
-    roster = roster_names()
-    for item in payload:
-        if item["op"] == "edge":
-            for end in (item["subject"], item["object"]):
-                if end not in known and end in roster:
-                    payload.append({"op": "node", "label": "Person", "id": end,
-                                    "props": {"name": end, "kind": "Person"}})
-                    known.add(end)
-
+    db.wipe()
+    db.ensure_indexes()
     db.batch_write(payload)
     REJECTED.parent.mkdir(exist_ok=True)
     with open(REJECTED, "w", encoding="utf-8") as f:

@@ -9,6 +9,7 @@ errors. The file is the only source of PASS counts; run it from the repo root:
 from __future__ import annotations
 
 import datetime
+from contextvars import ContextVar
 import hashlib
 import json
 import re
@@ -18,7 +19,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from oncall_brain import agent, db, tools  # noqa: E402
+from oncall_brain import agent, db  # noqa: E402
+from oncall_brain.json_response import object_from_response  # noqa: E402
 
 GOLD = ROOT / "docs" / "02-答案卡.md"
 RESULTS = ROOT / "eval" / "results"
@@ -92,86 +94,56 @@ def parse_gold() -> list[dict]:
 # --------------------------------------------------------------------------
 # Judging
 # --------------------------------------------------------------------------
-NOT_FOUND_WORDS = ["not_found", "no answer", "not in the current graph",
-                   "no documentation", "no runbook", "not found", "nowhere",
-                   "no owner", "nothing", "not part of"]
+ANSWER_STATES = ["applicable", "insufficient_context", "conflict", "superseded", "not_found"]
+JUDGE_SCHEMA_VERSION = "strict-v2"
+JUDGE_PROMPT_VERSION = "2026-10-15-v2"
+_pending_cache = ContextVar("pending_judge_cache", default=None)
 
 
-def _norm(s: str) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", s.lower()).strip()
-
-
-# The answer template always contains a "## Conflicts / Superseded" heading, so
-# keyword presence says nothing about which state the answer actually reports.
-# The state is therefore judged semantically (see _llm_detect_status).
-ANSWER_STATES = ["applicable", "insufficient_context", "conflict", "superseded",
-                 "stale", "not_found"]
-
-_STATUS_JUDGE = """You are labelling which answer-state a support answer actually reports.
-
-QUESTION: {question}
-
-ANSWER:
-{answer}
-
-STATES:
-- applicable: the material does answer the question and a concrete answer is given.
-- insufficient_context: an answer exists but needs a condition the asker did not give.
-- conflict: the answer's point is that two or more sources disagree on the same
-  question and it lays them out side by side without picking one.
-- superseded: the answer's point is that the practice being asked about has been
-  replaced; it gives the current rule plus the old one and the effective date.
-- stale: the answer is available but flagged as possibly out of date.
-- not_found: the material has no answer and the answer says so.
-
-Careful:
-- An answer that MENTIONS a conflict or a superseded item in passing still
-  reports `applicable` if its actual point is a concrete answer to the question.
-- A section heading alone is not a claim.
-- `superseded` and `conflict` only win when that is what the answer is ABOUT.
-
-Reply with JSON only: {{"state": "<one of the six state names>"}}
-"""
+class JudgeError(ValueError):
+    """Provider or schema failure: invalid judgement, never a verdict."""
 
 
 def _llm_detect_status(question: str, answer: str) -> str:
-    """Which answer-state the answer actually conveys (semantic, cached)."""
-    if not answer.strip():
-        return "not_found"
-    payload = question + "||" + answer
-    return _cached("status", payload,
-                   lambda: _llm_detect_status_uncached(question, answer))
+    first = answer.splitlines()[0] if answer else ""
+    if first.startswith("Status: ") and first[8:] in ANSWER_STATES:
+        return first[8:]
+    raise JudgeError("missing or invalid first-line Status")
 
 
-def _llm_detect_status_uncached(question: str, answer: str) -> str:
+def _judge_json(prompt: str) -> dict:
+    import os
+    from dotenv import load_dotenv
+    import openai
+
+    load_dotenv(ROOT / ".env")
     try:
-        import os
-
-        import openai
-        from dotenv import load_dotenv
-
-        load_dotenv(ROOT / ".env")
         client = openai.OpenAI(base_url=os.environ["LLM_BASE_URL"],
                                api_key=os.environ["LLM_API_KEY"])
-        resp = client.chat.completions.create(
-            model=os.environ.get("LLM_JUDGE_MODEL") or os.environ.get("LLM_MODEL"),
-            messages=[{"role": "user", "content": _STATUS_JUDGE.format(
-                question=question, answer=answer[:6000])}],
-            temperature=0.0, response_format={"type": "json_object"})
-        data = json.loads(resp.choices[0].message.content or "{}")
-        state = str(data.get("state", "")).strip()
-        if state in ANSWER_STATES:
-            return state
-    except Exception:  # noqa: BLE001 - fall back to the lexical signal
-        pass
-    return "not_found" if _says_not_found(answer) else "applicable"
+        response = client.chat.completions.create(
+            model=os.environ.get("LLM_JUDGE_MODEL") or os.environ["LLM_MODEL"],
+            messages=[{"role": "user", "content": prompt}], temperature=0.0,
+            response_format={"type": "json_object"})
+        data = object_from_response(response.choices[0].message.content or "{}")
+        if not isinstance(data, dict):
+            raise JudgeError("judge response must be a JSON object")
+        return data
+    except JudgeError:
+        raise
+    except Exception as exc:
+        # Do not retain provider messages, which may contain connection secrets.
+        raise JudgeError(f"judge provider/JSON failure: {type(exc).__name__}") from None
+
+
+def _boolean(data: dict, field: str) -> bool:
+    if type(data.get(field)) is not bool:
+        raise JudgeError(f"{field} must be a JSON boolean")
+    return data[field]
 
 
 def _evidence_cited(answer: str, gold_evidence: list[str]) -> list[str]:
-    locs = {e.rsplit(":", 1)[-1] for e in gold_evidence}
-    cited = set(re.findall(r"(\d{1,4})\]", answer)) | set(
-        re.findall(r":(\d{1,4})\b", answer))
-    return sorted(locs & cited, key=int)
+    cited = set(re.findall(r"corpus/[^\s\]`]+:\d+", answer))
+    return sorted(set(gold_evidence) & cited)
 
 
 _POINT_JUDGE = """You are grading whether an answer covers required points.
@@ -205,33 +177,20 @@ def _llm_point_hits(question: str, answer: str, points: list[str]) -> list[bool]
 def _llm_point_hits_uncached(question: str, answer: str,
                              points: list[str]) -> list[bool]:
     enumerated = "\n".join(f"{i}. {p}" for i, p in enumerate(points, 1))
-    try:
-        import json as _json
-        import os
-
-        import openai
-        from dotenv import load_dotenv
-
-        load_dotenv(ROOT / ".env")
-        client = openai.OpenAI(base_url=os.environ["LLM_BASE_URL"],
-                               api_key=os.environ["LLM_API_KEY"])
-        Resp = client.chat.completions.create(
-            model=os.environ.get("LLM_JUDGE_MODEL") or os.environ["LLM_MODEL"],
-            messages=[{"role": "user", "content": _POINT_JUDGE.format(
-                question=question, answer=answer[:6000], points=enumerated)}],
-            temperature=0.0, response_format={"type": "json_object"})
-        data = _json.loads(Resp.choices[0].message.content or "{}")
-        rows = {int(r.get("index", -1)): bool(r.get("covered"))
-                for r in data.get("results", [])}
-        return [rows.get(i, False) for i in range(1, len(points) + 1)]
-    except Exception:  # noqa: BLE001 - fall back to lexical overlap
-        a_norm = _norm(answer)
-        out = []
-        for p in points:
-            toks = [t for t in _norm(p).split() if len(t) > 3 and t not in _STOP][:6]
-            out.append(bool(toks) and sum(1 for t in toks if t in a_norm)
-                       >= max(2, len(toks) // 2))
-        return out
+    data = _judge_json(_POINT_JUDGE.format(question=question, answer=answer,
+                                          points=enumerated))
+    rows = data.get("results")
+    if not isinstance(rows, list) or len(rows) != len(points):
+        raise JudgeError("point indices must be complete and unique")
+    flags = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            raise JudgeError("point result must be an object")
+        index = row.get("index")
+        if type(index) is not int or index not in range(1, len(points) + 1) or index in flags:
+            raise JudgeError("invalid or duplicate point index")
+        flags[index] = _boolean(row, "covered")
+    return [flags[i] for i in range(1, len(points) + 1)]
 
 
 def _count_point_hits(q: dict, answer: str) -> tuple[int, list[bool]]:
@@ -279,24 +238,9 @@ def _llm_carries(kind: str, question: str, answer: str) -> bool:
 
 
 def _llm_carries_uncached(kind: str, question: str, answer: str) -> bool:
-    try:
-        import os
-
-        import openai
-        from dotenv import load_dotenv
-
-        load_dotenv(ROOT / ".env")
-        client = openai.OpenAI(base_url=os.environ["LLM_BASE_URL"],
-                               api_key=os.environ["LLM_API_KEY"])
-        resp = client.chat.completions.create(
-            model=os.environ.get("LLM_JUDGE_MODEL") or os.environ.get("LLM_MODEL"),
-            messages=[{"role": "user", "content": _CARRIES_JUDGE.format(
-                question=question, answer=answer[:6000],
-                claim=_CARRIES_CLAIMS[kind])}],
-            temperature=0.0, response_format={"type": "json_object"})
-        return bool(json.loads(resp.choices[0].message.content or "{}").get("carries"))
-    except Exception:  # noqa: BLE001 - fail open; the strict label still decides
-        return False
+    data = _judge_json(_CARRIES_JUDGE.format(
+        question=question, answer=answer, claim=_CARRIES_CLAIMS[kind]))
+    return _boolean(data, "carries")
 
 
 def _supersession_evidence(question: str, answer: str) -> bool:
@@ -307,52 +251,66 @@ def _conflict_evidence(question: str, answer: str) -> bool:
     return _llm_carries("conflict", question, answer)
 
 
-def _says_not_found(answer: str) -> bool:
-    """Did the answer actually declare there is no answer in the material?
-
-    The words must appear as the answer's own conclusion. A sentence like
-    "no documentation for X was found anywhere" counts; "there is no need to
-    contact X" does not, so the latter must not be mistaken for not_found.
-    """
-    sentences = re.split(r"[.\n]+", answer)
-    for s in sentences:
-        sl = s.lower()
-        if any(w in sl for w in NOT_FOUND_WORDS):
-            # content-only peeking: exclude sentences that merely mention
-            # absence of unrelated things while still giving an answer
-            if any(m in sl for m in ("? ", "if you", "please contact")):
-                continue
-            return True
-    return False
+def _verified_citations(res: dict) -> tuple[list[str], list[str]]:
+    """Accept only exact aid/source/locator joins from this answer's tool results."""
+    supported = set()
+    for result in res.get("tool_results", []):
+        evidence = {e["id"]: e for e in result.get("evidence", [])}
+        joins = [(a["aid"], a.get("evidence", [])) for a in result.get("assertions", [])]
+        for conflict in result.get("conflicts", []):
+            joins.extend((v["aid"], v.get("evidence", [])) for v in conflict["values"])
+        for path in result.get("paths", []):
+            joins.extend(zip(path.get("aids", []), path.get("evidence_ids", [])))
+        for aid, ids in joins:
+            for eid in ids:
+                ev = evidence.get(eid)
+                if ev:
+                    supported.add((aid, f"{ev['source']}:{ev['locator']}"))
+    valid, invalid = [], []
+    for citation in re.findall(r"\[([^\]\n]+)\]", res.get("answer", "")):
+        m = re.fullmatch(r"(.+?)\s*(?:->|→)\s*(corpus/[^:]+:\d+)", citation)
+        if m:
+            pair = (m[1].strip(), m[2].strip())
+            (valid if pair in supported else invalid).append(citation)
+    return sorted(set(valid)), sorted(set(invalid))
 
 
 def judge(q: dict, res: dict) -> dict:
+    pending = []
+    token = _pending_cache.set(pending)
+    try:
+        verdict = _judge_valid(q, res)
+        for path, value in pending:
+            path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+        return verdict
+    except JudgeError as exc:
+        return {"valid": False, "detected": "judge_error", "passed": False,
+                "reason": f"judge_error: {exc}", "status_ok": False,
+                "hits": 0, "total_points": len(q["points"]), "point_detail": [],
+                "forbidden_hits": [], "carries_superseded": False,
+                "carries_conflict": False, "fabrication": False, "gave_up": False,
+                "evidence_hit": [], "citations": []}
+    finally:
+        _pending_cache.reset(token)
+
+
+def _judge_valid(q: dict, res: dict) -> dict:
     # res is {"result": agent result, "inspect": {...}}
     answer = res["result"].get("answer") or ""
-    a_norm = _norm(answer)
     expected = q["expected_status"]
-    citations = res["inspect"]["citations"]
+    citations, invalid_citations = _verified_citations(res["result"])
     ev_hit = _evidence_cited(answer, q["evidence"])
 
-    # Status: which state the answer actually reports, judged semantically (a
-    # keyword scan misreads every answer, because the answer template always
-    # contains a "## Conflicts / Superseded" heading whether or not the answer
-    # is about a conflict or a supersession).
     detected = _llm_detect_status(q["question"], answer)
-    carries_superseded = bool(_supersession_evidence(q["question"], answer))
-    carries_conflict = bool(_conflict_evidence(q["question"], answer))
-
-    # The card records the state the answer must *convey*, and an answer can
-    # convey a state without leading with its label -- e.g. Q9's answer gives
-    # the current submission route and reports the superseded email rule with
-    # its replacement and date. So the expected state is satisfied either by
-    # the reported state or by the answer genuinely carrying that state's
-    # substance. What is never accepted is the reverse: an answer that says
-    # not_found where the material does answer, or vice versa.
-    substance = {"superseded": carries_superseded, "conflict": carries_conflict}
-    status_ok = (expected == detected) or (
-        expected in substance and substance[expected]
-        and detected in ("applicable", expected, "insufficient_context"))
+    carries_superseded = (_supersession_evidence(q["question"], answer)
+                          if expected == "superseded" else False)
+    carries_conflict = (_conflict_evidence(q["question"], answer)
+                       if expected == "conflict" else False)
+    status_ok = expected == detected
+    if expected == "superseded":
+        status_ok = status_ok and carries_superseded
+    if expected == "conflict":
+        status_ok = status_ok and carries_conflict
 
     # Hard behaviour 1: never fabricate. Where the card says the material has
     # no answer, the answer must actually declare that.
@@ -367,11 +325,13 @@ def judge(q: dict, res: dict) -> dict:
     forbidden_hits = [f for f in q["forbidden"]
                       if _forbidden_present(f, answer, q["question"])]
 
-    passed = (status_ok and not forbidden_hits and not fabrication
+    passed = (status_ok and not invalid_citations and not forbidden_hits and not fabrication
               and not gave_up and hits >= max(1, (len(q["points"]) + 1) // 2)
               and (bool(citations) or expected == "not_found"))
 
     reasons = []
+    if invalid_citations:
+        reasons.append("citations not supported by actual tool evidence")
     if fabrication:
         reasons.append("fabricated an answer where the card says not_found")
     if gave_up:
@@ -385,7 +345,7 @@ def judge(q: dict, res: dict) -> dict:
     if not citations and expected != "not_found":
         reasons.append("no [aid -> file:line] citation emitted")
 
-    return {"status_ok": status_ok, "detected": detected, "hits": hits,
+    return {"valid": True, "invalid_citations": invalid_citations, "status_ok": status_ok, "detected": detected, "hits": hits,
             "total_points": len(q["points"]), "point_detail": point_detail,
             "forbidden_hits": forbidden_hits,
             "carries_superseded": carries_superseded,
@@ -393,10 +353,6 @@ def judge(q: dict, res: dict) -> dict:
             "fabrication": fabrication, "gave_up": gave_up,
             "evidence_hit": ev_hit, "citations": citations,
             "passed": passed, "reason": "; ".join(reasons) or "ok"}
-
-
-_STOP = {"the", "and", "that", "this", "for", "with", "from", "must", "not",
-         "every", "per", " Incident", "74c042b2"}
 
 
 def _forbidden_present(forbidden: str, answer: str, question: str = "") -> bool:
@@ -435,9 +391,6 @@ Careful:
 Reply with JSON only: {{"violates": true/false, "quote": "<short quote or empty>", "reason": "<one sentence>"}}
 """
 
-_forbidden_cache: dict[tuple[str, str], bool] = {}
-
-
 def _disk_cache() -> Path:
     d = RESULTS / ".judge_cache"
     d.mkdir(parents=True, exist_ok=True)
@@ -445,62 +398,47 @@ def _disk_cache() -> Path:
 
 
 def _cache_path(kind: str, payload: str) -> Path:
-    return _disk_cache() / f"{kind}-{hashlib.sha256(payload.encode()).hexdigest()[:20]}.json"
+    import os
+    from dotenv import load_dotenv
+    load_dotenv(ROOT / ".env")
+    identity = json.dumps({"kind": kind, "payload": payload,
+        "model": os.environ.get("LLM_JUDGE_MODEL") or os.environ.get("LLM_MODEL"),
+        "schema": JUDGE_SCHEMA_VERSION, "version": JUDGE_PROMPT_VERSION,
+        "prompts": [_POINT_JUDGE, _CARRIES_JUDGE, _FORBIDDEN_JUDGE]}, sort_keys=True)
+    return _disk_cache() / f"{kind}-{hashlib.sha256(identity.encode()).hexdigest()}.json"
 
 
 def _cached(kind: str, payload: str, compute):
-    """Judge results persist across runs, so re-judging is instant."""
     cp = _cache_path(kind, payload)
     if cp.exists():
         try:
-            return json.loads(cp.read_text(encoding="utf-8"))
-        except Exception:  # noqa: BLE001 - recompute on a corrupt cache file
+            value = json.loads(cp.read_text(encoding="utf-8"))
+            if ((kind == "points" and isinstance(value, list)
+                 and all(type(v) is bool for v in value))
+                    or (kind in ("forbidden", "carries") and type(value) is bool)):
+                return value
+        except (ValueError, OSError):
             pass
-    value = compute()
-    cp.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+    value = compute()  # errors propagate; no error/fallback value is persisted
+    pending = _pending_cache.get()
+    if pending is not None:
+        pending.append((cp, value))
+    else:
+        cp.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
     return value
 
 
 def _llm_forbidden_check(prohibition: str, answer: str, question: str) -> bool:
-    key = (hash(prohibition), hash(answer))
-    if key in _forbidden_cache:
-        return _forbidden_cache[key]
     if not answer.strip():
-        _forbidden_cache[key] = False
         return False
-
-    def compute() -> bool:
-        return _llm_forbidden_uncached(prohibition, answer, question)
-
-    verdict = _cached("forbidden", prohibition + "||" + question + "||" + answer,
-                      compute)
-    _forbidden_cache[key] = verdict
-    return verdict
+    return _cached("forbidden", prohibition + "||" + question + "||" + answer,
+                   lambda: _llm_forbidden_uncached(prohibition, answer, question))
 
 
 def _llm_forbidden_uncached(prohibition: str, answer: str, question: str) -> bool:
-    try:
-        import json as _json
-        import os
-
-        import openai
-        from dotenv import load_dotenv
-
-        load_dotenv(ROOT / ".env")
-        client = openai.OpenAI(base_url=os.environ["LLM_BASE_URL"],
-                               api_key=os.environ["LLM_API_KEY"])
-        resp = client.chat.completions.create(
-            model=os.environ.get("LLM_JUDGE_MODEL") or os.environ["LLM_MODEL"],
-            messages=[{"role": "user", "content": _FORBIDDEN_JUDGE.format(
-                question=question, answer=answer[:6000],
-                prohibition=prohibition)}],
-            temperature=0.0, response_format={"type": "json_object"})
-        data = _json.loads(resp.choices[0].message.content or "{}")
-        verdict = bool(data.get("violates"))
-    except Exception:  # noqa: BLE001 - fail open, reported in the log
-        verdict = False
-    _forbidden_cache[key] = verdict
-    return verdict
+    data = _judge_json(_FORBIDDEN_JUDGE.format(
+        question=question, answer=answer, prohibition=prohibition))
+    return _boolean(data, "violates")
 
 
 # --------------------------------------------------------------------------
@@ -513,8 +451,9 @@ def render(qs: list[dict], results: list[dict], stats: dict, model: str) -> str:
         "",
         f"- Generated: `{datetime.datetime.now().isoformat(timespec='seconds')}`",
         f"- Model: `{model}`",
-        f"- Graph: `{db.GRAPH_NAME}` @ FalkorDB `{db.HOST}:{db.PORT}`",
+        f"- Graph: `{db.GRAPH_NAME}`",
         f"- **PASS: {passed} / {len(qs)}**",
+        f"- Invalid judgements: {sum(not r['judgement']['valid'] for r in results)}",
         "",
         "> Every answer below was produced by `agent.ask()` against the live graph;",
         "> nothing here is hand-written. Tool sequences and Cypher template names",
@@ -526,7 +465,7 @@ def render(qs: list[dict], results: list[dict], stats: dict, model: str) -> str:
     for q, r in zip(qs, results):
         j = r["judgement"]
         lines += [
-            f"## Q{q['qid']} — {'PASS' if j['passed'] else 'FAIL'}",
+            f"## Q{q['qid']} — {'INVALID' if not j['valid'] else 'PASS' if j['passed'] else 'FAIL'}",
             "",
             f"**Question**: {q['question']}",
             "",
@@ -564,7 +503,7 @@ def render(qs: list[dict], results: list[dict], stats: dict, model: str) -> str:
             "",
             r["result"]["answer"] or "(empty)",
             "",
-            f"**Verdict**: {'PASS' if j['passed'] else 'FAIL'} — {j['reason']}",
+            f"**Verdict**: {'INVALID' if not j['valid'] else 'PASS' if j['passed'] else 'FAIL'} — {j['reason']}",
             "",
             "---",
             "",
@@ -633,6 +572,9 @@ def main(argv: list[str] | None = None) -> int:
 
     for q, r in zip(qs, results):
         r["judgement"] = judge(q, r)
+        print(f"Judged Q{q['qid']}: "
+              f"{'INVALID' if not r['judgement']['valid'] else 'PASS' if r['judgement']['passed'] else 'FAIL'}",
+              flush=True)
 
     stats = db.stats()
     report = render(qs, results, stats, model or "")
@@ -640,6 +582,24 @@ def main(argv: list[str] | None = None) -> int:
     (RESULTS / "latest.md").write_text(report, encoding="utf-8")
     (RESULTS / f"{stamp}.md").write_text(report, encoding="utf-8")
 
+    import subprocess
+    provenance = {
+        "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
+        "diff_sha256": hashlib.sha256(subprocess.check_output(["git", "diff", "HEAD"], cwd=ROOT)).hexdigest(),
+        "corpus_sha256": hashlib.sha256(b"".join(
+            f.relative_to(ROOT).as_posix().encode() + f.read_bytes()
+            for f in sorted((ROOT / "corpus").rglob("*")) if f.is_file()
+            and f.suffix in (".md", ".json", ".csv"))).hexdigest(),
+        "graph": db.GRAPH_NAME, "model": model,
+        "graph_sha256": hashlib.sha256(json.dumps(
+            db.g().query("MATCH (s:Entity)-[r]->(o:Entity) "
+                         "RETURN s.id, type(r), o.id, properties(r), r.aid ORDER BY r.aid").result_set,
+            ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest(),
+        "judge_model": os.environ.get("LLM_JUDGE_MODEL") or model,
+        "judge_schema": JUDGE_SCHEMA_VERSION, "judge_prompt_version": JUDGE_PROMPT_VERSION,
+        "stats": stats, "questions": qs, "results": results}
+    (RESULTS / f"{stamp}.json").write_text(
+        json.dumps(provenance, ensure_ascii=False, indent=2), encoding="utf-8")
     passed = sum(1 for r in results if r["judgement"]["passed"])
     print(f"\nPASS {passed}/{len(qs)}")
     for q, r in zip(qs, results):

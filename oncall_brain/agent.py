@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 
 from . import tools
@@ -43,7 +44,9 @@ HARD RULES:
 8. A rule with a condition (e.g. severity=P3) that the question does not supply is insufficient_context: answer with the conditional rule AND ask for the missing condition.
 9. If nothing relevant is visible, answer not_found -- state plainly that the material has no answer, and say who/what to ask next. Never speculate.
 
-ANSWER FORMAT (markdown, exactly these sections, omit a section only when empty):
+ANSWER FORMAT: first line MUST be Status: <applicable|insufficient_context|conflict|superseded|not_found>.
+Use the answer_status returned by relevant tools, never infer status from prose.
+Then use these markdown sections (omit a section only when empty):
 ## Next step
 Concrete action the asker should take now. Concrete names, paths, forms, deadlines.
 ## Basis
@@ -88,6 +91,15 @@ def _arg_str(args: dict) -> str:
     return ", ".join(parts)
 
 
+def answer_status(results: list[dict]) -> str:
+    """State comes from tool contracts; absent/failed evidence is incomplete."""
+    states = {r.get("answer_status") for r in results}
+    for state in ("conflict", "superseded", "insufficient_context", "applicable", "not_found"):
+        if state in states:
+            return state
+    return "insufficient_context"
+
+
 def ask(question: str, model: str | None = None, trace: list | None = None,
         max_calls: int = MAX_CALLS) -> dict:
     """Run the tool-calling loop for one question.
@@ -103,6 +115,7 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
         {"role": "user", "content": question},
     ]
     log: list[dict] = []
+    tool_results: list[dict] = []
     relation_queries = 0
     answer = ""
     stop_reason = "completed"
@@ -136,6 +149,7 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
                     result = tools.call_tool(name, args)
             else:
                 result = tools.call_tool(name, args)
+            tool_results.append(result)
             entry = {"step": step + 1, "tool": name, "args": args,
                      "args_str": _arg_str(args),
                      "status": result.get("status"),
@@ -147,8 +161,8 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
         if len(log) >= max_calls:
             # Any tool_calls we broke on still need a reply, or the next
             # request is rejected as an unanswered tool call.
-            answered = {m.tool_call_id for m in messages
-                        if getattr(m, "tool_call_id", None)}
+            answered = {m["tool_call_id"] for m in messages
+                        if isinstance(m, dict) and m.get("role") == "tool"}
             for call in msg.tool_calls:
                 if call.id not in answered:
                     messages.append({"role": "tool", "tool_call_id": call.id,
@@ -176,7 +190,9 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
         attempts = [
             dict(model=model, messages=messages, temperature=0.0),
             dict(model=model, messages=[messages[0], {"role": "user",
-                 "content": question}, {"role": "user", "content": prompt}],
+                 "content": question}, {"role": "user", "content":
+                 "Actual tool evidence: " + json.dumps(tool_results, ensure_ascii=False)
+                 + "\n" + prompt}],
                  temperature=0.0),
         ]
         for kwargs in attempts:
@@ -193,7 +209,11 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
 
     if trace is not None:
         trace.extend(log)
+    state = answer_status(tool_results)
+    answer = re.sub(r"\AStatus:[^\n]*(?:\n|$)", "", answer)
+    answer = f"Status: {state}\n" + answer
     return {"question": question, "answer": answer, "trace": log,
+            "tool_results": tool_results, "answer_status": state,
             "tool_calls": len(log), "relation_queries": relation_queries,
             "stop_reason": stop_reason}
 
@@ -210,9 +230,9 @@ def _templates_for(name: str, args: dict, result: dict) -> list[str]:
         return keys
     if name == "read_knowledge":
         return ["read_entity", "read_neighbors", "superseded_targets",
-                "evidence_by_id"]
+                "slot_claims", "evidence_by_id", "(relationship evidence join)"]
     if name == "query_relations":
         if result.get("status") == "error":
             return ["(rejected before query)"]
-        return ["traverse", "superseded_targets", "evidence_by_id"]
+        return ["traverse", "superseded_targets", "slot_claims", "evidence_by_id"]
     return []

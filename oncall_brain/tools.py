@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import datetime
 import os
+import json
 
 from . import schema as S
 from .db import g
@@ -52,12 +53,67 @@ TEMPLATES = {
         "RETURN [n IN nodes(p) | n.id], [n IN nodes(p) | n.kind], [n IN nodes(p) | n.name], "
         "[rel IN relationships(p) | type(rel)], [rel IN relationships(p) | rel.aid], "
         "[rel IN relationships(p) | rel.authority], [rel IN relationships(p) | rel.evidence], "
-        "[rel IN relationships(p) | rel.valid_from] "
+        "[rel IN relationships(p) | rel.valid_from], "
+        "[rel IN relationships(p) | rel.condition], [rel IN relationships(p) | rel.condition_key] "
         "LIMIT $limit"),
     "evidence_by_id": (
         "MATCH (e:Evidence) WHERE e.id IN $ids "
         "RETURN e.id, e.source, e.locator, e.excerpt, e.authority"),
+    "slot_claims": (
+        "MATCH (s:Entity)-[r]->(o:Entity) WHERE " + VISIBLE + " "
+        "AND r.claims_json IS NOT NULL "
+        "AND (s.id IN $ids OR o.id IN $ids OR any(x IN r.claim_subjects WHERE x IN $ids)) "
+        "RETURN s.id, o.id, r.aid, r.authority, r.valid_from, r.valid_to, r.claims_json, r.evidence"),
 }
+
+
+def compare_claims(claims: list[dict], context: dict | None = None) -> list[dict]:
+    """Compare one semantic slot only where equality conditions and dates overlap."""
+    by_slot = {}
+    for c in claims:
+        cond = c.get("condition") or {}
+        if any(k in (context or {}) and str(context[k]) != str(v) for k, v in cond.items()):
+            continue
+        by_slot.setdefault((c["subject"], c["predicate"]), []).append(c)
+    conflicts = []
+    for (subject, predicate), values in by_slot.items():
+        competing = []
+        for i, left in enumerate(values):
+            for right in values[i + 1:]:
+                if left["value"] == right["value"]:
+                    continue
+                lc, rc = left.get("condition") or {}, right.get("condition") or {}
+                if any(str(lc[k]) != str(rc[k]) for k in lc.keys() & rc.keys()):
+                    continue
+                if max(left.get("valid_from") or "", right.get("valid_from") or "") >= min(
+                        left.get("valid_to") or "9999-12-31", right.get("valid_to") or "9999-12-31"):
+                    continue
+                for c in (left, right):
+                    if c not in competing:
+                        competing.append(c)
+        if competing:
+            competing.sort(key=lambda c: (S.AUTH_RANK.get(c.get("authority"), 9), c["aid"]))
+            conflicts.append({"subject": subject, "predicate": predicate, "values": competing,
+                "note": "different visible values in an overlapping semantic slot; surfaced, not resolved"})
+    return conflicts
+
+
+def _slot_conflicts(ids: list[str], t: str, sup: dict, context: dict | None) -> tuple[list, set]:
+    claims, evidence_ids = [], set()
+    rows = g().query(TEMPLATES["slot_claims"], {"ids": ids, "now": t}).result_set
+    for subject, obj, aid, authority, vf, vt, raw, ev in rows:
+        if subject in sup or obj in sup:
+            continue
+        for c in json.loads(raw):
+            if c["subject"] not in ids:
+                continue
+            claims.append({**c, "aid": aid, "authority": authority,
+                           "valid_from": vf, "valid_to": vt, "evidence": [c["evidence_id"]]})
+    conflicts = compare_claims(claims, context)
+    for conflict in conflicts:
+        for value in conflict["values"]:
+            evidence_ids.update(value["evidence"])
+    return conflicts, evidence_ids
 
 
 def now() -> str:
@@ -155,7 +211,7 @@ def search_knowledge(query: str, kind: str | None = None, limit: int = 12) -> di
             "superseded_by": [r["superseded_by"] for r in sup.get(i, [])]}
            for i, k, n, s in rows]
     if not out:
-        return {"status": "not_found", "query": q, "candidates": [],
+        return {"status": "not_found", "answer_status": "not_found", "query": q, "candidates": [],
                 "note": "no entity in the current graph matches; do not guess an id"}
     return {"status": "ok", "query": q, "candidates": out}
 
@@ -193,7 +249,7 @@ def read_knowledge(id: str, context: dict | None = None) -> dict:
     t = now()
     row = g().query(TEMPLATES["read_entity"], {"id": id}).result_set
     if not row:
-        return {"status": "not_found", "id": id,
+        return {"status": "not_found", "answer_status": "not_found", "id": id,
                 "note": f"{id} is not in the current graph; do not assume it exists"}
     props = dict(row[0][0])
     rows = g().query(TEMPLATES["read_neighbors"], {"id": id, "now": t}).result_set
@@ -222,10 +278,10 @@ def read_knowledge(id: str, context: dict | None = None) -> dict:
                 if penalty:
                     rec["penalty"] = penalty
                 out["assertions"].append(rec)
-                ev.update(_rel_evidence(id, aid, typ, mid, outgoing))
+                rec["evidence"] = _rel_evidence(id, aid, typ, mid, outgoing)
+                ev.update(rec["evidence"])
     out["assertions"].sort(key=lambda a: (S.AUTH_RANK.get(a["authority"], 9),
                                           a["predicate"], a["other"]["id"]))
-    out["evidence"] = _evidence(ev)
     # conflict detection over single-valued slots (design doc §3.6)
     by_slot: dict[tuple[str, str], list[dict]] = {}
     for a in out["assertions"]:
@@ -233,14 +289,24 @@ def read_knowledge(id: str, context: dict | None = None) -> dict:
             by_slot.setdefault((a["predicate"], "out"), []).append(a)
     conflicts = []
     for (pred, _), vals in by_slot.items():
-        if len(vals) > 1:
+        if len({v["other"]["id"] for v in vals}) > 1:
             conflicts.append({
                 "predicate": pred,
                 "values": [{"value": v["other"]["id"], "authority": v["authority"],
                             "aid": v["aid"]} for v in vals],
                 "note": "multiple visible values for a single-valued slot; surfaced, not resolved"})
+    semantic, extra_ev = _slot_conflicts([id] + [a["other"]["id"] for a in out["assertions"]],
+                                       t, sup, context)
+    conflicts.extend(semantic)
+    ev.update(extra_ev)
+    out["evidence"] = _evidence(ev)
     if conflicts:
         out["conflicts"] = conflicts
+    out["answer_status"] = ("conflict" if conflicts else "superseded" if out["superseded"]
+        or any(a["predicate"] == "SUPERSEDES" for a in out["assertions"])
+        else "insufficient_context" if out.get("applicability") == "insufficient_context"
+        or any(a.get("applicability") == "insufficient_context" for a in out["assertions"])
+        else "applicable" if out["assertions"] else "not_found")
     return out
 
 
@@ -271,26 +337,38 @@ def query_relations(start_id: str, predicates: list[str], direction: str = "out"
     rows = g().query(q, {"id": start_id, "now": t, "limit": int(limit)}).result_set
     sup = _superseded(t)
     paths, ev = [], set()
-    for ids, kinds, names, types, aids, auths, evidences, vfs in rows:
+    for ids, kinds, names, types, aids, auths, evidences, vfs, conditions, keys in rows:
+        applicability = [_eval_condition(c, k, context) for c, k in zip(conditions, keys)]
+        if "inapplicable" in applicability:
+            continue
         paths.append({
             "nodes": [{"id": i, "kind": k, "name": n} for i, k, n in zip(ids, kinds, names)],
             "edges": types, "aids": aids, "authority": auths, "valid_from": vfs,
+            "evidence_ids": evidences,
+            "conditions": conditions, "applicability": applicability,
             "superseded_nodes": [i for i in ids if i in sup],
         })
         for e in evidences or []:
             ev.update(e)
     paths.sort(key=lambda p: (len(p["edges"]), S.AUTH_RANK.get(
         (p["authority"] or ["observation"])[0], 9)))
+    conflicts, extra_ev = _slot_conflicts(
+        sorted({start_id} | {n["id"] for p in paths for n in p["nodes"]}), t, sup, context)
+    ev.update(extra_ev)
     out = {
         "status": "ok" if paths else "not_found",
         "start_id": start_id, "predicates": predicates,
         "direction": direction, "max_hops": hops,
         "release_time": t, "paths": paths,
         "evidence": _evidence(ev), "truncated": len(rows) >= int(limit),
+        "conflicts": conflicts,
     }
     if not paths:
         out["note"] = ("no visible relation path in the current graph for these "
                        "predicates/direction; report not_found rather than guessing")
+    out["answer_status"] = ("conflict" if conflicts else "superseded" if any(p["superseded_nodes"] or "SUPERSEDES" in p["edges"] for p in paths)
+                            else "insufficient_context" if any("insufficient_context" in p["applicability"] for p in paths)
+                            else "applicable" if paths else "not_found")
     return out
 
 

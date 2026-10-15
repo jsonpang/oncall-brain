@@ -60,7 +60,8 @@ def _infer_label(nid: str) -> str:
 
 def node(label: str, nid: str, **props) -> str:
     """MERGE a node by id, set label + properties. Returns the id."""
-    props = {k: v for k, v in props.items() if v is not None}
+    props = {"kind": label, "name": nid.split(":", 1)[-1].replace("_", " "),
+             **{k: v for k, v in props.items() if v is not None}}
     pq = ", ".join(f"n.{k} = ${k}" for k in props)
     q = (f"MERGE (n:Entity:{label} {{id: $id}}) "
          + (f"SET {pq} " if pq else "")
@@ -96,9 +97,14 @@ def edge(subject: str, predicate: str, obj: str, *,
     slabel, olabel = _infer_label(subject), _infer_label(obj)
     q = (f"MERGE (a:Entity:{slabel} {{id: $s}}) "
          f"MERGE (b:Entity:{olabel} {{id: $o}}) "
+         "SET a.kind = coalesce(a.kind, $skind), a.name = coalesce(a.name, $sname), "
+         "b.kind = coalesce(b.kind, $okind), b.name = coalesce(b.name, $oname) "
          f"MERGE (a)-[r:{predicate} {{aid: $aid}}]->(b) "
          f"SET {pq}")
-    g().query(q, {"s": subject, "o": obj, "aid": aid, **props})
+    g().query(q, {"s": subject, "o": obj, "skind": slabel, "okind": olabel,
+                 "sname": subject.split(":", 1)[-1].replace("_", " "),
+                 "oname": obj.split(":", 1)[-1].replace("_", " "),
+                 "aid": aid, **props})
     # Evidence is attached as the relationship's `evidence` property (verified
     # ids), NOT as (rel)-[:EVIDENCE]->(e) edges: this FalkorDB build rejects
     # creating an edge whose endpoints include a bound relationship variable

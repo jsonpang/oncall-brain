@@ -89,12 +89,15 @@ def label_of(nid: str) -> str:
         return "Rule" if nid.startswith("Rule:") else "Notice"
     if nid.startswith("Procedure:"):
         return "Procedure"
-    if nid.startswith("Stage:"):
+    if nid.startswith(("Stage:", "WorkStage:")):
         return "WorkStage"
     if nid.startswith("Role:") or nid.startswith("Team Lead - "):
         return "Role"
     if nid.startswith("Team:"):
         return "Team"
+    for kind in S.LABELS:
+        if nid.startswith(kind + ":"):
+            return kind
     if nid in ("Synthetix Solutions", "Strata Technologies", "Northwind Field Services"):
         return "Vendor"
     if re.match(r"^(Channel|Sentinel|Unified|Internal Ops|Internal Operations|"
