@@ -506,6 +506,23 @@
       overflow-wrap: anywhere;
       word-break: break-all;
     }
+    .cr-details {
+      margin-top: 10px;
+    }
+    .cr-details summary {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 13px;
+      padding: 6px 4px;
+      user-select: none;
+      transition: color .15s ease;
+    }
+    .cr-details summary:hover {
+      color: var(--text);
+    }
+    .cr-details .items-list {
+      margin-top: 10px;
+    }
 
     /* Section 4: Conflicts */
     .cf-card {
@@ -817,6 +834,48 @@ const MOCK_DATA = {
       "sources": [
         "corpus/chats/infra_hotfix_202607.md:112"
       ]
+    },
+    {
+      "id": "Rule:db_connection_pool_burst",
+      "name": "DB Pool Emergency Burst Size (+20%)",
+      "sources": [
+        "corpus/chats/db_incident_202603.md:88"
+      ]
+    },
+    {
+      "id": "Rule:vip_queue_bypass",
+      "name": "VIP Request Direct Bypass Policy",
+      "sources": [
+        "corpus/chats/gateway_sync_202602.md:23"
+      ]
+    },
+    {
+      "id": "Notice:redis_cluster_flush_window",
+      "name": "Redis Flush Operation Restrict Time",
+      "sources": [
+        "corpus/chats/cache_ops_202605.md:61"
+      ]
+    },
+    {
+      "id": "Rule:batch_job_retry_limit",
+      "name": "Overnight Batch Job Max Retry Count",
+      "sources": [
+        "corpus/chats/billing_troubleshoot_202606.md:74"
+      ]
+    },
+    {
+      "id": "Notice:elasticsearch_index_rollover",
+      "name": "Log Index Rollover Size Override",
+      "sources": [
+        "corpus/chats/infra_hotfix_202608.md:15"
+      ]
+    },
+    {
+      "id": "Rule:alert_silence_window",
+      "name": "Maintenance Window Alert Silence Threshold",
+      "sources": [
+        "corpus/chats/sre_standup_202609.md:32"
+      ]
     }
   ],
   "conflicts": [
@@ -832,6 +891,11 @@ const MOCK_DATA = {
         "Friday 18:00 - Monday 09:00",
         "Thursday 20:00 - Monday 09:00"
       ]
+    },
+    {
+      "subject": "Rule:penalty_points_deduction",
+      "predicate": "PENALTY_POINTS",
+      "values": ["-2 pts", "-2 pts", "-10 pts"]
     }
   ],
   "superseded": [
@@ -878,6 +942,7 @@ const I18N = {
     sec3_why: '规则所有依据均来自聊天记录，没有正式文档支撑，容易出现口头约定过时或理解偏差。',
     badge_chat_only: '仅聊天记录支撑',
     lbl_sources: '聊天记录出处',
+    show_more_rules: '展开其余 {n} 条',
 
     sec4_title: '4. 说法冲突',
     sec4_why: '单值关系上同一主体出现多个互斥值，导致运维执行时无所适从、决策歧义或产生误操作。',
@@ -923,6 +988,7 @@ const I18N = {
     sec3_why: 'Rules supported only by chat records without formal documentation; prone to outdated consensus or misunderstandings.',
     badge_chat_only: 'Chat only',
     lbl_sources: 'Chat Sources',
+    show_more_rules: 'Show {n} more',
 
     sec4_title: '4. Conflicting Claims',
     sec4_why: 'Multiple conflicting values exist for a single-valued relation on the same entity, causing operational ambiguity.',
@@ -1155,6 +1221,23 @@ function renderOwnerVsHandlers(list) {
   `;
 }
 
+function renderChatRuleCard(item) {
+  return `
+    <div class="cr-card">
+      <div class="cr-head">
+        <span class="badge badge-warn">${escapeHtml(t('badge_chat_only'))}</span>
+        <code>${escapeHtml(item.id)}</code>
+        <span class="cr-name">${escapeHtml(item.name)}</span>
+      </div>
+      <div class="sources-box">
+        ${(item.sources || []).map(s => `
+          <div class="source-item">💬 ${escapeHtml(s)}</div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function renderChatOnlyRules(list) {
   const container = document.getElementById('content-cr');
   const badge = document.getElementById('badge-cr');
@@ -1165,24 +1248,28 @@ function renderChatOnlyRules(list) {
     return;
   }
 
-  container.innerHTML = `
+  const wasOpen = container.querySelector('details.cr-details')?.open;
+  const first5 = list.slice(0, 5);
+  const rest = list.slice(5);
+
+  let html = `
     <div class="items-list">
-      ${list.map(item => `
-        <div class="cr-card">
-          <div class="cr-head">
-            <span class="badge badge-warn">${escapeHtml(t('badge_chat_only'))}</span>
-            <code>${escapeHtml(item.id)}</code>
-            <span class="cr-name">${escapeHtml(item.name)}</span>
-          </div>
-          <div class="sources-box">
-            ${(item.sources || []).map(s => `
-              <div class="source-item">💬 ${escapeHtml(s)}</div>
-            `).join('')}
-          </div>
-        </div>
-      `).join('')}
+      ${first5.map(renderChatRuleCard).join('')}
     </div>
   `;
+
+  if (rest.length > 0) {
+    html += `
+      <details class="cr-details"${wasOpen ? ' open' : ''}>
+        <summary>${escapeHtml(t('show_more_rules', { n: rest.length }))}</summary>
+        <div class="items-list">
+          ${rest.map(renderChatRuleCard).join('')}
+        </div>
+      </details>
+    `;
+  }
+
+  container.innerHTML = html;
 }
 
 function renderConflicts(list) {
@@ -1197,24 +1284,38 @@ function renderConflicts(list) {
 
   container.innerHTML = `
     <div class="items-list">
-      ${list.map(item => `
-        <div class="cf-card">
-          <div class="cf-head">
-            <span class="badge badge-alert">⚠️</span>
-            <span>${escapeHtml(t('lbl_subject'))}:</span>
-            <code>${escapeHtml(item.subject)}</code>
-            <span class="pred-pill">${escapeHtml(item.predicate)}</span>
+      ${list.map(item => {
+        const rawValues = Array.isArray(item.values) ? item.values : [];
+        const values = [];
+        const seen = new Set();
+        for (const raw of rawValues) {
+          const displayVal = (typeof raw === 'object' && raw !== null && 'value' in raw) ? raw.value : raw;
+          const key = (displayVal === null || displayVal === undefined) ? '' : String(displayVal).trim();
+          if (!seen.has(key)) {
+            seen.add(key);
+            values.push(displayVal);
+          }
+        }
+
+        return `
+          <div class="cf-card">
+            <div class="cf-head">
+              <span class="badge badge-alert">⚠️</span>
+              <span>${escapeHtml(t('lbl_subject'))}:</span>
+              <code>${escapeHtml(item.subject)}</code>
+              <span class="pred-pill">${escapeHtml(item.predicate)}</span>
+            </div>
+            <div class="cf-values">
+              ${values.map((val, idx) => `
+                <div class="cf-val-item">
+                  <div style="font-size:11px;color:var(--muted);margin-bottom:2px;">#${idx + 1}</div>
+                  <div>${escapeHtml(val)}</div>
+                </div>
+              `).join('<div class="cf-vs">VS</div>')}
+            </div>
           </div>
-          <div class="cf-values">
-            ${(item.values || []).map((val, idx) => `
-              <div class="cf-val-item">
-                <div style="font-size:11px;color:var(--muted);margin-bottom:2px;">#${idx + 1}</div>
-                <div>${escapeHtml(val)}</div>
-              </div>
-            `).join('<div class="cf-vs">VS</div>')}
-          </div>
-        </div>
-      `).join('')}
+        `;
+      }).join('')}
     </div>
   `;
 }
