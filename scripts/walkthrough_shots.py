@@ -6,6 +6,7 @@ screenshot; callouts are numbered in reading order.
 
     python scripts/walkthrough_shots.py docs/walkthrough
 """
+import os
 import sys
 from pathlib import Path
 
@@ -13,7 +14,8 @@ from playwright.sync_api import sync_playwright
 
 OUT = Path(sys.argv[1])
 OUT.mkdir(parents=True, exist_ok=True)
-URL = "http://127.0.0.1:8000"
+URL = os.environ.get("WALKTHROUGH_URL", "http://127.0.0.1:8000")
+ONLY_SHOTS = set(os.environ.get("ONLY_SHOTS", "").split(",")) if os.environ.get("ONLY_SHOTS") else None
 Q14 = ("A pipeline runner is stuck in a circular dependency deadlock. Should I ping "
        "Wesley Tate to log into the backend and terminate the zombie worker process?")
 
@@ -71,14 +73,39 @@ def rect(pg, sel):
 
 
 def edge_xy(pg, which=0, predicate=None):
-    pick = f"es.filter(x => x.data('predicate') === {predicate!r})[0] ||" if predicate else ""
+    pred_val = repr(predicate) if predicate else "null"
     return pg.evaluate(f"""() => {{
-      const es = cy.edges('.cited'); const e = {pick} es[{which}] || es[0]; if (!e) return null;
+      const p = {pred_val};
+      const es = cy.edges('.cited');
+      const e = (p ? es.filter(x => x.data('predicate') === p)[0] : null) || es[{which}] || es[0];
+      if (!e) return null;
       const m = e.renderedMidpoint(), b = document.getElementById('graph').getBoundingClientRect();
       return [b.left + m.x, b.top + m.y]; }}""")
 
 
+def edge_pred(pg, which=0, predicate=None):
+    pred_val = repr(predicate) if predicate else "null"
+    return pg.evaluate(f"""() => {{
+      const p = {pred_val};
+      const es = cy.edges('.cited');
+      const e = (p ? es.filter(x => x.data('predicate') === p)[0] : null) || es[{which}] || es[0];
+      return e ? e.data('predicate') : null; }}""")
+
+
+def focus_edge(pg, predicate, zoom=1.2):
+    """Center the graph on one cited edge at a readable zoom (falls back to all cited elements)."""
+    pg.evaluate(f"""() => {{
+      const es = cy.edges('.cited'); const e = es.filter(x => x.data('predicate') === {predicate!r})[0];
+      const target = e ? e.union(e.connectedNodes()) : cy.$('.cited');
+      if (!target.length) return;
+      cy.zoom({zoom}); cy.center(target); }}""")
+    pg.wait_for_timeout(400)
+
+
 def shot(pg, name, items, scroll_y=0):
+    if ONLY_SHOTS and not any(name.startswith(p) for p in ONLY_SHOTS):
+        print("skipping", name)
+        return
     pg.evaluate(f"() => {{ window.scrollTo(0, {scroll_y}); document.querySelectorAll('section').forEach(x => x.scrollTop = 0); }}")
     pg.evaluate(OVERLAY_JS, items)
     pg.wait_for_timeout(250)
@@ -132,17 +159,15 @@ with sync_playwright() as p:
     pg.locator("#close-dialog").click()
     pg.wait_for_timeout(1800)  # let the focus flash end
 
-    # 4. The graph: switch to explore tab to see Cytoscape graph with cited edges
+    # 4. The graph: the answer-path view draws question -> entities -> relations the conclusion cites
+    pg.locator('[data-view="path"]').click()
+    pg.wait_for_timeout(600)
+    shot(pg, "04-graph-proof.png", [
+        {"n": 1, "sel": "#path-canvas", "text": "答案路径：从你的问题出发，经过哪些实体、哪条关系得出结论。箭头上是关系名，例如「维护人」", "lx": 1210, "ly": 300, "w": 340},
+        {"n": 2, "sel": ".proof-item", "text": "结论的每一句对应图上哪条关系；点一句，上面的箭头就高亮", "lx": 1210, "ly": 700, "w": 340},
+    ])
     pg.locator('[data-view="explore"]').click()
-    pg.wait_for_timeout(500)
-    pg.evaluate("() => { const c = cy.$('.cited'); if (c.length) { cy.fit(c, 70); } }")
-    pg.wait_for_timeout(400)
-    g = rect(pg, "#graph")
-    xy = edge_xy(pg, predicate="MAINTAINED_BY")
-    items4 = [{"n": 2, "sel": "#graph-summary", "text": "变暗的是查过但没用上的内容；亮起几条线，结论就引用了几条关系", "lx": g[0] + 20, "ly": g[3] - 70, "w": 340}]
-    if xy:
-        items4.insert(0, {"n": 1, "xy": xy, "text": "亮绿色的线 = 结论的依据。线上写着关系名，例如「这份知识库由谁维护」", "lx": g[0] + 20, "ly": g[1] + 20, "w": 330})
-    shot(pg, "04-graph-proof.png", items4)
+    pg.wait_for_timeout(300)
 
     # 5. How it was found: open trace box
     pg.evaluate("() => { document.getElementById('trace-box').open = true; }")
@@ -159,17 +184,23 @@ with sync_playwright() as p:
     ask(pg, question=Q14)
     pg.locator('[data-view="explore"]').click()
     pg.wait_for_timeout(500)
-    pg.evaluate("() => { const c = cy.$('.cited'); if (c.length) { cy.fit(c, 70); } }")
-    pg.wait_for_timeout(400)
+    focus_edge(pg, 'HOLDS_ROLE')
     g = rect(pg, "#graph")
     xy = edge_xy(pg, predicate="HOLDS_ROLE")
+    pred = edge_pred(pg, predicate="HOLDS_ROLE")
+    if pred == "HOLDS_ROLE":
+        c4_text = "依据在图上：Colin 是 Tier 2 Pipeline Specialist（HOLDS_ROLE 角色），属于二线技术负责人；Wesley 只有维护文档关系"
+    elif pred:
+        c4_text = f"依据在图上：结论引用了 {pred} 关系作为依据；指出 Wesley 并非后端修复负责人"
+    else:
+        c4_text = "依据在图上：亮绿色的线是结论引用的依据；Wesley 并非后端修复负责人"
     items6 = [
         {"n": 1, "sel": "#question", "text": "这个问题本身就错了：它默认 Wesley 能去修服务器", "lx": g[0] + 20, "ly": 100, "w": 320},
-        {"n": 2, "sel": ".conclusion", "text": "系统没有顺着问题答，而是指出前提错误：别找 Wesley，找 Colin Marsh", "lx": g[0] + 20, "ly": 650, "w": 320},
-        {"n": 3, "sel": "#activity", "text": "所以状态是「说法冲突 / 问题前提不成立」", "lx": g[0] + 20, "ly": 220, "w": 320},
+        {"n": 2, "sel": ".conclusion", "text": "系统没有顺着问题答，而是指出前提错误：别找 Wesley，找 Colin Marsh", "lx": 1210, "ly": 580, "w": 340},
+        {"n": 3, "sel": "#activity", "text": "所以状态是「说法冲突 / 问题前提不成立」", "lx": g[0] + 20, "ly": 330, "w": 300},
     ]
     if xy:
-        items6.append({"n": 4, "xy": xy, "text": "依据在图上：Colin 是 Tier 2 Pipeline Specialist（HOLDS_ROLE 角色），属于二线技术负责人；Wesley 只有维护文档关系", "lx": g[2] - 340, "ly": 380, "w": 330})
+        items6.append({"n": 4, "xy": xy, "text": c4_text, "lx": 1210, "ly": 320, "w": 340})
     shot(pg, "06-trap.png", items6)
 
     # 7. Who actually fixed it card (Expertise card)
