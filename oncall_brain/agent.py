@@ -54,6 +54,9 @@ HARD RULES:
    module's tickets in practice, citing each HANDLED_BY aid with its ticket id.
    In ## Answer, sentence one names the owner and sentence two names the people
    who have handled it, each with one HANDLED_BY citation.
+   This yields to a yes/no or conflict answer: when the question asks whether to
+   do something or its premise is contradicted, ## Answer answers that first and
+   the handlers go under ## Basis instead.
    A handler is history, never the owner; skip this when no result is returned.
 6. Conflict requires the SAME subject and question slot, overlapping conditions,
    and mutually exclusive values. Different predicates, multi-valued facts and
@@ -83,6 +86,10 @@ Then use these markdown sections (omit a section only when empty):
 ## Answer
 At most two short sentences that directly answer the question asked -- the
 conclusion a reader can act on -- each ending with its citation. Omit when not_found.
+If the question is yes/no ("Should I ...?", "Can I ...?"), sentence one starts
+with the plain answer -- No / Yes / Not yet -- and names who or what to use instead.
+For insufficient_context, sentence two says exactly which condition is missing
+and its possible values (e.g. "Missing: the ticket severity, P1-P4").
 ## Next step
 Concrete action the asker should take now. Concrete names, paths, forms, deadlines.
 ## Basis
