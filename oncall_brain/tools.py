@@ -231,6 +231,23 @@ def describe_ontology() -> dict:
 # --------------------------------------------------------------------------
 # 2. search_knowledge
 # --------------------------------------------------------------------------
+def _with_context(rows, before: int = 2, after: int = 8) -> list[dict]:
+    """Matching source lines plus the surrounding lines of the same thread."""
+    keys = ["id", "source", "locator", "excerpt", "authority"]
+    hits = [dict(zip(keys, row)) for row in rows]
+    ids = []
+    for h in hits:
+        n = int(h["locator"])
+        ids += [f"ev:{h['source']}:{i}" for i in range(max(1, n - before), n + after + 1)]
+    if not ids:
+        return hits
+    near = g().query(TEMPLATES["evidence_by_id"], {"ids": sorted(set(ids))}).result_set
+    out = {h["id"]: h for h in hits}
+    for row in near:
+        out.setdefault(row[0], dict(zip(keys, row)))
+    return sorted(out.values(), key=lambda e: (e["source"], int(e["locator"])))[:24]
+
+
 def search_knowledge(query: str, kind: str | None = None, limit: int = 12) -> dict:
     """Entity candidates by fulltext name match, with a substring fallback."""
     q = (query or "").strip()
@@ -253,14 +270,18 @@ def search_knowledge(query: str, kind: str | None = None, limit: int = 12) -> di
             "superseded_by": [r["superseded_by"] for r in sup.get(i, [])]}
            for i, k, n, s in rows]
     if not out:
-        rows = g().query(TEMPLATES["source_search"], {"q": q, "limit": int(limit)}).result_set
-        sources = [dict(zip(["id", "source", "locator", "excerpt", "authority"], row)) for row in rows]
+        sources = _with_context(g().query(TEMPLATES["source_search"],
+                                          {"q": q, "limit": int(limit)}).result_set)
         if sources:
             return {"status": "ok", "answer_status": "applicable", "query": q,
                     "candidates": [], "source_evidence": sources}
         return {"status": "not_found", "answer_status": "not_found", "query": q, "candidates": [],
                 "note": "no entity in the current graph matches; do not guess an id"}
-    return {"status": "ok", "query": q, "candidates": out}
+    # Exact phrases (error codes, component names) may also appear verbatim in
+    # source lines that no entity name carries; surface those lines too.
+    sources = _with_context(g().query(TEMPLATES["source_search"], {"q": q, "limit": 6}).result_set)
+    return {"status": "ok", "query": q, "candidates": out,
+            **({"source_evidence": sources} if sources else {})}
 
 
 # --------------------------------------------------------------------------

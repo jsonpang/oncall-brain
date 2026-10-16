@@ -39,6 +39,9 @@ HARD RULES:
    actual person, the actual channel, form or path, the actual deadline and
    number. A correct-but-generic answer ("use the standard procedure") is a
    failure. If several people are involved, say which one does what.
+   When the evidence enumerates items (mandatory fields, channels, steps,
+   deadlines, penalties), list every one of them by its exact name, not a
+   subset or a paraphrase, and include the stated penalty or audit risk.
 5. MAINTAINED_BY proves only who curates a document. It is NEVER an escalation or troubleshooting target. The module escalation owner is TECH_LEAD_OF.
 6. Conflict requires the SAME subject and question slot, overlapping conditions,
    and mutually exclusive values. Different predicates, multi-valued facts and
@@ -57,6 +60,9 @@ HARD RULES:
    searched and which requested facts are missing. Do not suggest a plausible
    owner, procedure, or related module. An owner of a similar module does not
    establish ownership of an unknown component or a remedy for an unknown error.
+   When source lines discuss this very item or error (it is out of scope, no
+   runbook exists, how to reply, where to log it, who is already handling the
+   incident), keep Status: not_found and still give that handling, each line cited.
 
 ANSWER FORMAT: first line MUST be Status: <applicable|insufficient_context|conflict|superseded|not_found>.
 Choose a status supported by tools relevant to the question. You may report
@@ -188,6 +194,26 @@ def _supersession_lines(question: str, results: list[dict],
                              + (f", effective {s['effective']}" if s.get("effective") else "")
                              + f" [{s['aid']} → {locs[0]}].")
     return lines
+
+
+def _identifiers(question: str) -> list[str]:
+    ids = re.findall(r"\b[A-Za-z][A-Za-z0-9]*(?:[-_][A-Za-z0-9]+){2,}\b|\b0x[0-9A-Fa-f]+\b", question)
+    return [s for s in ids if "_" in s or re.search(r"[A-Z0-9]", s)]
+
+
+def _item_discussion(question: str, results: list[dict], window: int = 8) -> set[str]:
+    """Locators within `window` lines of a source line naming the question's identifier."""
+    ids = [s.casefold() for s in _identifiers(question)]
+    if not ids:
+        return set()
+    lines = {}
+    for r in results:
+        for e in r.get("source_evidence", []) + r.get("evidence", []):
+            if isinstance(e, dict) and "source" in e:
+                lines[(e["source"], int(e["locator"]))] = (e.get("excerpt") or "").casefold()
+    hits = [(s, n) for (s, n), text in lines.items() if any(i in text for i in ids)]
+    return {f"{s}:{n}" for (s, n) in lines
+            if any(s == hs and abs(n - hn) <= window for hs, hn in hits)}
 
 
 def _cited_conflict(answer: str) -> bool:
@@ -334,7 +360,13 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
     if superseded and state in ("applicable", "insufficient_context"):
         state = "superseded"
         answer = answer.rstrip("\n") + "\n\n## Conflicts / Superseded\n" + "\n".join(superseded)
-    if missing or state == "not_found" or not facts:
+    on_topic = _item_discussion(question, tool_results)
+    kept, kept_facts = _grounded_answer(answer, {p for p in supported if p[1] in on_topic})
+    if state == "not_found" and kept_facts and not missing:
+        # Handling advice is kept only when it cites the conversation about
+        # this very item (lines near a verbatim mention of its identifier).
+        answer = kept.rstrip("\n") + "\n\n" + _not_found_answer(question, log, missing)
+    elif missing or state == "not_found" or not facts:
         state = "not_found"
         answer = _not_found_answer(question, log, missing)
     answer = f"Status: {state}\n" + answer

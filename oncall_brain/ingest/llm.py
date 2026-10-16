@@ -54,7 +54,7 @@ def _llm():
 
 
 def _model() -> str:
-    return os.environ.get("LLM_MODEL", "workbuddy-glm-5.3")
+    return os.environ.get("LLM_MODEL", "gemini-3.8-flash-high")
 
 
 # --------------------------------------------------------------------------

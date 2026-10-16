@@ -130,6 +130,19 @@ def build_payload(llm_edges: list[dict], llm_rejects: list[dict]):
                                 "props": {"kind": kind, "name": name}})
                 known.add(nid)
 
+    # Index every content line as source evidence so text search can reach
+    # statements no assertion was extracted from (e.g. an unknown component).
+    have = {p["id"] for p in payload if p["op"] == "evidence"}
+    for src in llm.sources():
+        authority = "formal_rule" if src.startswith("corpus/docs/") else "observation"
+        for i, text in enumerate(EV.lines(src), 1):
+            if len(text.strip()) < 20 or text.lstrip().startswith(("#", "|---", "---")):
+                continue
+            ev = EV.build(src, i, authority, None)
+            if ev and ev["id"] not in have:
+                payload.append({"op": "evidence", **ev})
+                have.add(ev["id"])
+
     rejects.extend({"origin": "llm", **r} for r in llm_rejects)
     if aliases:
         (ROOT / "ingest" / "aliases.json").write_text(
