@@ -135,6 +135,45 @@ def ontology():
     return jsonify(tools.describe_ontology())
 
 
+@app.get('/demo')
+def demo_page():
+    return app.send_static_file('freshness.html')
+
+
+@app.post('/api/demo/notice')
+@available
+def demo_notice():
+    from uuid import uuid4
+    from oncall_brain import freshness
+    graph = os.environ.get('DEMO_GRAPH', '')
+    try:
+        freshness._demo(graph)
+    except ValueError:
+        return jsonify(status='error', error='DEMO_GRAPH must end in _demo.'), 403
+    payload = request.get_json(silent=True)
+    fields = ('name', 'text', 'supersedes_id', 'effective')
+    if not isinstance(payload, dict) or any(not isinstance(payload.get(k), str) or
+                                           not payload[k].strip() for k in fields):
+        return jsonify(status='error', error='name, text, supersedes_id, effective are required.'), 400
+    try:
+        return jsonify(freshness.add_notice(graph, f'Notice:Demo_{uuid4().hex}',
+                                           *(payload[k] for k in fields)))
+    except ValueError as exc:
+        return jsonify(status='error', error=str(exc)), 400
+
+
+@app.post('/api/demo/reset')
+@available
+def demo_reset():
+    from oncall_brain import freshness
+    graph = os.environ.get('DEMO_GRAPH', '')
+    try:
+        freshness._demo(graph)
+    except ValueError:
+        return jsonify(status='error', error='DEMO_GRAPH must end in _demo.'), 403
+    return jsonify(freshness.reset_demo(graph))
+
+
 @app.get("/api/search")
 @available
 def search():

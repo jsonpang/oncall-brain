@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OnCall Brain · Freshness</title>
+<style>
+:root{color-scheme:dark;--bg:#101419;--panel:#181e26;--line:#303b48;--text:#e5edf7;--muted:#a2afbf;--mint:#79dfb2;--blue:#8abaff;--amber:#f5c56c;--red:#ff939e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,sans-serif}main{max-width:840px;margin:auto;padding:20px;min-width:0}section{padding:18px;background:var(--panel);border:1px solid var(--line);border-radius:12px;margin:16px 0}input,textarea,button{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px;max-width:100%}input,textarea{width:100%;margin:4px 0 12px}button{cursor:pointer;margin:4px}button:disabled{opacity:.5}label{display:block}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:var(--blue)}.old{color:var(--muted);opacity:.65}.old strong{text-decoration:line-through}#message{overflow-wrap:anywhere;color:var(--amber)}h1{font-size:1.5rem}
+</style>
+<main>
+<nav><a href="/">OnCall Brain</a> <button id="language">English</button></nav>
+<h1 data-zh="知识随通知更新" data-en="Knowledge follows new notices"></h1>
+<p data-zh="只操作隔离演示图。查询直接读取知识图谱，不调用大模型。" data-en="Isolated demo graph. Reads use the graph directly, without a model."></p>
+<section>
+<label><span data-zh="被替代规则 ID" data-en="Rule ID to replace"></span><input id="rule" value="Rule:Default_Step_Timeout_60_Minutes"></label>
+<button id="read" data-zh="默认步骤超时多少分钟？（同一个问题）" data-en="What is the default step timeout? (same question)"></button>
+<div id="answer" aria-live="polite"></div>
+</section>
+<section>
+<label><span data-zh="通知名称" data-en="Notice name"></span><input id="name" value="Default step timeout: 30 minutes"></label>
+<label><span data-zh="通知正文" data-en="Notice text"></span><textarea id="text" rows="3">Starting 2026-10-16, the default step timeout is 30 minutes, replacing the previous 60-minute default.</textarea></label>
+<label><span data-zh="生效日期" data-en="Effective date"></span><input id="effective" type="date" value="2026-10-16"></label>
+<button id="add" data-zh="添加新通知" data-en="Add notice"></button>
+<button id="reset" data-zh="还原：删除演示图" data-en="Reset: delete demo graph"></button>
+</section>
+<p id="message" role="status"></p>
+</main>
+<script>
+let lang='zh';
+try{const saved=localStorage.getItem('oncall-lang');if(saved==='zh'||saved==='en')lang=saved}catch(e){}
+const $=id=>document.getElementById(id);
+function translate(){document.documentElement.lang=lang;document.querySelectorAll('[data-zh]').forEach(el=>el.textContent=el.dataset[lang]);$('language').textContent=lang==='zh'?'English':'中文'}
+$('language').onclick=()=>{lang=lang==='zh'?'en':'zh';try{localStorage.setItem('oncall-lang',lang)}catch(e){}translate()};translate();
+async function api(url,body){const res=await fetch(url,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await res.json();if(!res.ok)throw Error(data.error||data.note||res.status);return data}
+function show(data,old){const card=document.createElement('section');if(old)card.className='old';const title=document.createElement('strong');title.textContent=(old?(lang==='zh'?'已替代 · ':'Superseded · '):'')+data.entity.name;card.append(title);const pre=document.createElement('pre');pre.textContent=JSON.stringify({id:data.id,superseded:data.superseded,evidence:data.evidence},null,2);card.append(pre);$('answer').append(card)}
+async function read(){
+ $('answer').replaceChildren();let id=$('rule').value;const visited=new Set();
+ while(id){if(visited.has(id)||visited.size>=20)throw Error('Replacement chain cycle / limit');visited.add(id);const data=await api('/api/node/'+encodeURIComponent(id));show(data,!!data.superseded.length);if(data.superseded.length>1)throw Error('Multiple replacements; inspect chain');id=data.superseded[0]?.superseded_by}
+}
+async function run(fn){document.querySelectorAll('button').forEach(b=>b.disabled=true);$('message').textContent='';try{await fn()}catch(e){$('message').textContent=e.message}finally{document.querySelectorAll('button').forEach(b=>b.disabled=false)}}
+$('read').onclick=()=>run(read);
+$('add').onclick=()=>run(async()=>{const data=await api('/api/demo/notice',{name:$('name').value,text:$('text').value,supersedes_id:$('rule').value,effective:$('effective').value});$('message').textContent=JSON.stringify(data)});
+$('reset').onclick=()=>run(async()=>{const data=await api('/api/demo/reset',{});$('answer').replaceChildren();$('message').textContent=JSON.stringify(data)});
+</script>
+</html>
