@@ -23,6 +23,10 @@
   .expertise-card{border:1px solid var(--line);border-radius:8px;padding:12px;margin:10px 0;font-size:12px}.expertise-card h3{margin:0 0 8px;font-size:13px;color:var(--mint)}.expertise-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.expertise-columns h4{margin:0 0 6px;color:var(--muted);font-size:12px}.expertise-columns p{margin:6px 0}.expertise-outside{display:inline-block;border-radius:4px;padding:1px 5px;margin-left:5px;background:var(--line);color:var(--muted);font-size:11px}
   #path{height:auto;max-height:760px;overflow:auto;min-height:330px}#path-canvas{height:420px;position:relative}#path-tooltip{position:fixed;z-index:100;max-width:min(440px,90vw);padding:10px 12px;border:1px solid var(--amber);border-radius:7px;background:#2a2414;color:#ffe2a8;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none}#q-label:empty{display:none}
   #ask-progress .progress-result{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;background:#111820;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--blue)}
+  .conclusion code{background:#0e1e18;border-color:#2c5a48;color:var(--mint)}
+  .conclusion.conflict code{background:#201a0d;border-color:#5c4718;color:var(--amber)}
+  .conclusion.superseded code{background:#0d1826;border-color:#264366;color:var(--blue)}
   </style>
 </head>
 <body>
@@ -395,13 +399,36 @@ function showEvidence(item, label) {
   $('evidence-text').textContent=item.excerpt || t('no_excerpt');
   $('evidence-dialog').showModal();
 }
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+function renderInlineCode(text) {
+  let s = text;
+  const backticks = (s.match(/`/g) || []).length;
+  if (backticks % 2 === 1) {
+    if (s.endsWith('…')) s = s.slice(0, -1) + '`…';
+    else s = s + '`';
+  }
+  return escapeHtml(s).replace(/`([^`\n]+)`/g, '<code>$1</code>');
+}
+function appendWithInlineCode(parent, text) {
+  const span = document.createElement('span');
+  span.innerHTML = renderInlineCode(text);
+  while (span.firstChild) parent.append(span.firstChild);
+}
 function appendCitations(parent, text) {
   const pattern=/\[[^\]\n]+\]/g;
   let cursor=0;
   for(const match of text.matchAll(pattern)) {
     const citation=citations.find(c=>c.text===match[0]);
     if(!citation)continue;
-    parent.append(document.createTextNode(text.slice(cursor,match.index)));
+    appendWithInlineCode(parent, text.slice(cursor,match.index));
     const item=evidence.find(e=>e.id===citation.evidence_id);
     if(!citeNumbers.has(match[0])) citeNumbers.set(match[0], citeNumbers.size+1);
     const button=el('button',`${citeNumbers.get(match[0])}`,`citation cite-n ${item && (item.authority!=='formal_rule' || /(?:^|\/)chats\//.test(item.source))?'chat':''}`);
@@ -411,7 +438,7 @@ function appendCitations(parent, text) {
     button.addEventListener('click',()=>{focusCitation(citation.aid); showEvidence(item || {}, match[0]);}); parent.append(button);
     cursor=match.index+match[0].length;
   }
-  parent.append(document.createTextNode(text.slice(cursor)));
+  appendWithInlineCode(parent, text.slice(cursor));
 }
 function renderExpertise(data) {
   const results=(data.expertise || []).filter(r=>r.handlers?.length && r.owners && r.start_id);
@@ -549,7 +576,10 @@ function markProof() {
       const lit = cy.edges().filter(e => cites.some(c => c.aid === e.data('aid')) || (edges.some(x => x.id() === e.id()) && named(e)));
       const item = el('div', undefined, 'proof-item');
       const plain = line.replace(/\s*\[[^\]\n]*(?:→|->|corpus\/)[^\]\n]*\]/g, '').trim();
-      item.append(el('p', `${i + 1}. ${plain.length > 90 ? plain.slice(0, 90) + '…' : plain}`, 'proof-sentence'));
+      const p = el('p', undefined, 'proof-sentence');
+      p.append(document.createTextNode(`${i + 1}. `));
+      appendWithInlineCode(p, plain.length > 90 ? plain.slice(0, 90) + '…' : plain);
+      item.append(p);
       if (lit.length) {
         lit.forEach(e => {
           const text = say(e), aid = e.data('aid');
@@ -570,7 +600,7 @@ function markProof() {
   if(edges.length) {
     cy.elements().addClass('dim');
     edges.removeClass('dim').addClass('cited');
-    edges.connectedNodes().removeClass('dim').addClass('cited');
+    edges.connectedNodes().removeClass('dim').addClass('cited').style('text-opacity', 1);
     $('graph-summary').textContent = t('proof', {e: edges.length});
     // Open on the proof path; the dimmed context is still there when zoomed out.
     cy.fit(edges.connectedNodes(), 60); cy.zoom(Math.min(1.5, Math.max(0.9, cy.zoom()))); cy.center(edges.connectedNodes());
@@ -624,8 +654,8 @@ if(window.cytoscape) {
     {selector:'edge.near',style:{'text-opacity':1,width:2,'line-color':'#79dfb2','target-arrow-color':'#79dfb2','z-index':20}},
     {selector:'edge[authority = "observation"],edge[authority = "practice"]',style:{'line-color':'#f5c56c','target-arrow-color':'#f5c56c','line-style':'dashed'}},
     {selector:'.dim',style:{opacity:.22}},
-    {selector:'edge.cited',style:{width:3.5,'line-color':'#79dfb2','target-arrow-color':'#79dfb2','line-style':'solid','text-opacity':1,'font-size':9,color:'#e5edf7','z-index':30,opacity:1}},
-    {selector:'node.cited',style:{'text-opacity':1,'border-width':3,'border-color':'#79dfb2','z-index':30,opacity:1}},
+    {selector:'edge.cited',style:{width:3.5,'line-color':'#79dfb2','target-arrow-color':'#79dfb2','line-style':'solid','text-opacity':1,'font-size':11,color:'#e5edf7','z-index':30,opacity:1,'text-background-opacity':0.9,'text-background-color':'#111820','text-background-padding':3}},
+    {selector:'node.cited',style:{'text-opacity':1,'border-width':3,'border-color':'#79dfb2','z-index':30,opacity:1,'font-size':11,'text-background-opacity':0.85,'text-background-color':'#111820','text-background-padding':3}},
     {selector:'.focus',style:{'line-color':'#ffffff','target-arrow-color':'#ffffff','border-color':'#ffffff',width:5}},
     {selector:'edge[directed = false]',style:{'target-arrow-shape':'none'}},
     {selector:':selected',style:{'border-width':3,'border-color':'#fff'}}]});
@@ -672,11 +702,23 @@ if(window.cytoscape) {
   const zoomBy = f => cy.zoom({level: Math.min(3, Math.max(0.15, cy.zoom() * f)), renderedPosition: {x: $('graph').clientWidth / 2, y: $('graph').clientHeight / 2}});
   $('zoom-in').onclick = () => zoomBy(1.25);
   $('zoom-out').onclick = () => zoomBy(1 / 1.25);
-  $('fit-proof').onclick = () => { const c = cy.$('.cited'); if (c.length) { cy.animate({fit: {eles: c, padding: 60}, duration: 300}); } };
+  $('fit-proof').onclick = () => {
+    const c = cy.$('.cited');
+    if (c.length) {
+      cy.animate({
+        fit: { eles: c, padding: 60 },
+        duration: 300,
+        complete: () => {
+          cy.zoom(Math.min(1.4, Math.max(0.9, cy.zoom())));
+          cy.center(c);
+        }
+      });
+    }
+  };
   // Names show for nodes this answer read; hovering reveals a node, its neighbours and their relations.
   cy.on('mouseover','node',e=>{e.target.addClass('hover');e.target.neighborhood().addClass('near');});
   cy.on('mouseout','node',e=>{e.target.removeClass('hover');e.target.neighborhood().removeClass('near');});
-  cy.on('zoom',()=>cy.nodes().not('[?root]').style('text-opacity',cy.zoom()>1.6?1:0));
+  cy.on('zoom',()=>cy.nodes().not('[?root], .cited').style('text-opacity',cy.zoom()>1.6?1:0));
 } else { $('graph').append(el('p',t('cdn_fail'),'error')); }
 $('ask-form').addEventListener('submit',async event=>{
   event.preventDefault();if(busy || !$('question').value.trim())return;

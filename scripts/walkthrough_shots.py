@@ -6,6 +6,7 @@ screenshot; callouts are numbered in reading order.
 
     python scripts/walkthrough_shots.py docs/walkthrough
 """
+import os
 import sys
 from pathlib import Path
 
@@ -13,7 +14,8 @@ from playwright.sync_api import sync_playwright
 
 OUT = Path(sys.argv[1])
 OUT.mkdir(parents=True, exist_ok=True)
-URL = "http://127.0.0.1:8000"
+URL = os.environ.get("WALKTHROUGH_URL", "http://127.0.0.1:8000")
+ONLY_SHOTS = set(os.environ.get("ONLY_SHOTS", "").split(",")) if os.environ.get("ONLY_SHOTS") else None
 Q14 = ("A pipeline runner is stuck in a circular dependency deadlock. Should I ping "
        "Wesley Tate to log into the backend and terminate the zombie worker process?")
 
@@ -71,15 +73,40 @@ def rect(pg, sel):
 
 
 def edge_xy(pg, which=0, predicate=None):
-    pick = f"es.filter(x => x.data('predicate') === {predicate!r})[0] ||" if predicate else ""
+    pred_val = repr(predicate) if predicate else "null"
     return pg.evaluate(f"""() => {{
-      const es = cy.edges('.cited'); const e = {pick} es[{which}] || es[0]; if (!e) return null;
+      const p = {pred_val};
+      const es = cy.edges('.cited');
+      const e = (p ? es.filter(x => x.data('predicate') === p)[0] : null) || es[{which}] || es[0];
+      if (!e) return null;
       const m = e.renderedMidpoint(), b = document.getElementById('graph').getBoundingClientRect();
       return [b.left + m.x, b.top + m.y]; }}""")
 
 
-def shot(pg, name, items):
-    pg.evaluate("() => { window.scrollTo(0,0); document.querySelectorAll('section').forEach(x => x.scrollTop = 0); }")
+def edge_pred(pg, which=0, predicate=None):
+    pred_val = repr(predicate) if predicate else "null"
+    return pg.evaluate(f"""() => {{
+      const p = {pred_val};
+      const es = cy.edges('.cited');
+      const e = (p ? es.filter(x => x.data('predicate') === p)[0] : null) || es[{which}] || es[0];
+      return e ? e.data('predicate') : null; }}""")
+
+
+def focus_edge(pg, predicate, zoom=1.2):
+    """Center the graph on one cited edge at a readable zoom (falls back to all cited elements)."""
+    pg.evaluate(f"""() => {{
+      const es = cy.edges('.cited'); const e = es.filter(x => x.data('predicate') === {predicate!r})[0];
+      const target = e ? e.union(e.connectedNodes()) : cy.$('.cited');
+      if (!target.length) return;
+      cy.zoom({zoom}); cy.center(target); }}""")
+    pg.wait_for_timeout(400)
+
+
+def shot(pg, name, items, scroll_y=0):
+    if ONLY_SHOTS and not any(name.startswith(p) for p in ONLY_SHOTS):
+        print("skipping", name)
+        return
+    pg.evaluate(f"() => {{ window.scrollTo(0, {scroll_y}); document.querySelectorAll('section').forEach(x => x.scrollTop = 0); }}")
     pg.evaluate(OVERLAY_JS, items)
     pg.wait_for_timeout(250)
     pg.screenshot(path=str(OUT / name))
@@ -89,6 +116,7 @@ def shot(pg, name, items):
 
 def ask(pg, question=None, example=None):
     if example:
+        pg.evaluate("() => { const b = document.querySelector('.examples-box'); if (b) b.open = true; }")
         pg.locator(f'[data-example="{example}"]').click()
     else:
         pg.fill("#question", question)
@@ -103,18 +131,17 @@ with sync_playwright() as p:
     pg.goto(URL, wait_until="networkidle")
     pg.evaluate("() => localStorage.setItem('oncall-lang','zh')")
     pg.reload(wait_until="networkidle")
-    g = rect(pg, "#graph")  # graph pane, used as free space for labels
 
     # 1. Ask
     shot(pg, "01-ask.png", [
-        {"n": 1, "sel": ".examples", "text": "点一道示例题（或在上面的框里输入英文问题），系统就开始查", "lx": g[0] + 20, "ly": 290, "w": 300},
+        {"n": 1, "sel": ".examples", "text": "点一道示例题（或在上面的框里输入英文问题），系统就开始查", "lx": 660, "ly": 300, "w": 320},
     ])
 
     # 2. The conclusion
     ask(pg, example="Q1")
     shot(pg, "02-conclusion.png", [
-        {"n": 1, "sel": ".conclusion", "text": "这就是答案：知识库在哪、谁维护、技术问题找谁", "lx": g[0] + 20, "ly": 560, "w": 300},
-        {"n": 2, "sel": "#answer-status", "text": "状态「可直接照做」：资料里有明确答案，没有冲突或过期", "lx": g[0] + 20, "ly": 420, "w": 300},
+        {"n": 1, "sel": ".conclusion", "text": "这就是答案：知识库在哪、谁维护、技术问题找谁", "lx": 650, "ly": 800, "w": 320},
+        {"n": 2, "sel": "#activity", "text": "状态「可直接照做」：资料里有明确答案，没有冲突或过期", "lx": 650, "ly": 100, "w": 320},
     ])
 
     # 3. Why: click a citation, read the source line
@@ -123,43 +150,74 @@ with sync_playwright() as p:
         cite = pg.locator("#answer .cite-n[data-matched='true']").first
     cite.click()
     pg.wait_for_timeout(600)
-    pg.evaluate("() => { const d = document.getElementById('evidence-dialog'); d.close(); d.show(); Object.assign(d.style, {position:'fixed', top:'300px', left:'640px', margin:0, width:'560px', zIndex:5000}); }")
+    pg.evaluate("() => { const d = document.getElementById('evidence-dialog'); d.close(); d.show(); Object.assign(d.style, {position:'fixed', top:'280px', left:'640px', margin:0, width:'560px', zIndex:5000}); }")
     pg.wait_for_timeout(300)
     shot(pg, "03-source.png", [
-        {"n": 1, "sel": ".conclusion .cite-n", "text": "凭什么这么说？点结论里的小编号", "lx": 330, "ly": 760, "w": 260},
-        {"n": 2, "sel": "#evidence-text", "text": "弹出原文那一行：来自哪份文件第几行，标着是正式文档还是聊天", "lx": 640, "ly": 180, "w": 330},
+        {"n": 1, "sel": ".conclusion .cite-n", "text": "凭什么这么说？点结论里的小编号", "lx": 250, "ly": 440, "w": 280},
+        {"n": 2, "sel": "#evidence-text", "text": "弹出原文那一行：来自哪份文件第几行，标着是正式文档还是聊天", "lx": 640, "ly": 160, "w": 330},
     ])
     pg.locator("#close-dialog").click()
     pg.wait_for_timeout(1800)  # let the focus flash end
 
-    # 4. The graph: lit edges are the basis of the conclusion
-    pg.evaluate("() => { const c = cy.$('.cited'); if (c.length) { cy.fit(c.connectedNodes(), 70); cy.zoom(Math.min(1.4, Math.max(0.9, cy.zoom()))); cy.center(c.connectedNodes()); } }")
-    pg.wait_for_timeout(400)
-    xy = edge_xy(pg)
-    items = [{"n": 2, "sel": "#graph-summary", "text": "变暗的是查过但没用上的内容；亮起几条线，结论就引用了几条关系", "lx": g[0] + 20, "ly": g[3] - 80, "w": 330}]
-    if xy:
-        items.insert(0, {"n": 1, "xy": xy, "text": "亮绿色的线 = 结论的依据。线上写着关系名，例如「这份知识库由谁维护」", "lx": g[0] + 20, "ly": g[1] + 20, "w": 330})
-    shot(pg, "04-graph-proof.png", items)
+    # 4. The graph: the answer-path view draws question -> entities -> relations the conclusion cites
+    pg.locator('[data-view="path"]').click()
+    pg.wait_for_timeout(600)
+    shot(pg, "04-graph-proof.png", [
+        {"n": 1, "sel": "#path-canvas", "text": "答案路径：从你的问题出发，经过哪些实体、哪条关系得出结论。箭头上是关系名，例如「维护人」", "lx": 1210, "ly": 300, "w": 340},
+        {"n": 2, "sel": ".proof-item", "text": "结论的每一句对应图上哪条关系；点一句，上面的箭头就高亮", "lx": 1210, "ly": 700, "w": 340},
+    ])
+    pg.locator('[data-view="explore"]').click()
+    pg.wait_for_timeout(300)
 
-    # 5. How it was found: the query trace
+    # 5. How it was found: open trace box
+    pg.evaluate("() => { document.getElementById('trace-box').open = true; }")
+    pg.wait_for_timeout(300)
     t = rect(pg, "#trace")
     shot(pg, "05-how.png", [
-        {"n": 1, "sel": "#trace .trace-card:nth-child(1)", "text": "第一步：按问题里的关键词，先在原始资料里找相关的几行", "lx": t[0] - 340, "ly": 170, "w": 300},
-        {"n": 2, "sel": "#trace .trace-card:nth-child(2)", "text": "第二步：Jev 给图里的候选实体打分，挑出值得读的几个（括号里是分数）", "lx": t[0] - 340, "ly": 420, "w": 300},
-        {"n": 3, "sel": "#trace .trace-card:nth-child(3)", "text": "第三步：读这些实体的全部关系和出处，最后才让大模型写结论", "lx": t[0] - 340, "ly": 760, "w": 300},
+        {"n": 1, "sel": "#trace .trace-card:nth-of-type(1)", "text": "第一步：按问题里的关键词，先在原始资料里找相关的几行", "lx": t[0] - 340, "ly": 170, "w": 300},
+        {"n": 2, "sel": "#trace .trace-card:nth-of-type(2)", "text": "第二步：Jev 给图里的候选实体打分，挑出值得读的几个（括号里是分数）", "lx": t[0] - 340, "ly": 420, "w": 300},
+        {"n": 3, "sel": "#trace .trace-card:nth-of-type(3)", "text": "第三步：读这些实体的全部关系和出处，最后才让大模型写结论", "lx": t[0] - 340, "ly": 720, "w": 300},
     ])
+    pg.evaluate("() => { document.getElementById('trace-box').open = false; }")
 
     # 6. Trap question
     ask(pg, question=Q14)
-    pg.evaluate("() => { const c = cy.$('.cited'); if (c.length) { cy.fit(c.connectedNodes(), 70); cy.zoom(Math.min(1.4, Math.max(0.9, cy.zoom()))); cy.center(c.connectedNodes()); } }")
-    pg.wait_for_timeout(400)
-    xy = edge_xy(pg, predicate="TECH_LEAD_OF")
-    items = [
-        {"n": 1, "sel": "#question", "text": "这个问题本身就错了：它默认 Wesley 能去修服务器", "lx": g[0] + 20, "ly": 175, "w": 300},
-        {"n": 2, "sel": ".conclusion", "text": "系统没有顺着问题答，而是指出前提错误：别找 Wesley，找 Colin Marsh", "lx": g[0] + 20, "ly": 640, "w": 300},
-        {"n": 3, "sel": "#answer-status", "text": "所以状态是「说法冲突 / 问题前提不成立」", "lx": g[0] + 20, "ly": 330, "w": 300},
+    pg.locator('[data-view="explore"]').click()
+    pg.wait_for_timeout(500)
+    focus_edge(pg, 'HOLDS_ROLE')
+    g = rect(pg, "#graph")
+    xy = edge_xy(pg, predicate="HOLDS_ROLE")
+    pred = edge_pred(pg, predicate="HOLDS_ROLE")
+    if pred == "HOLDS_ROLE":
+        c4_text = "依据在图上：Colin 是 Tier 2 Pipeline Specialist（HOLDS_ROLE 角色），属于二线技术负责人；Wesley 只有维护文档关系"
+    elif pred:
+        c4_text = f"依据在图上：结论引用了 {pred} 关系作为依据；指出 Wesley 并非后端修复负责人"
+    else:
+        c4_text = "依据在图上：亮绿色的线是结论引用的依据；Wesley 并非后端修复负责人"
+    items6 = [
+        {"n": 1, "sel": "#question", "text": "这个问题本身就错了：它默认 Wesley 能去修服务器", "lx": g[0] + 20, "ly": 100, "w": 320},
+        {"n": 2, "sel": ".conclusion", "text": "系统没有顺着问题答，而是指出前提错误：别找 Wesley，找 Colin Marsh", "lx": 1210, "ly": 580, "w": 340},
+        {"n": 3, "sel": "#activity", "text": "所以状态是「说法冲突 / 问题前提不成立」", "lx": g[0] + 20, "ly": 330, "w": 300},
     ]
     if xy:
-        items.append({"n": 4, "xy": xy, "text": "依据在图上：Colin 和模块之间是「技术负责人」（TECH_LEAD_OF）关系；Wesley 只有「维护文档」关系", "lx": g[2] - 330, "ly": 480, "w": 310})
-    shot(pg, "06-trap.png", items)
+        items6.append({"n": 4, "xy": xy, "text": c4_text, "lx": 1210, "ly": 320, "w": 340})
+    shot(pg, "06-trap.png", items6)
+
+    # 7. Who actually fixed it card (Expertise card)
+    pg.locator('[data-view="path"]').click()
+    pg.wait_for_timeout(300)
+    shot(pg, "07-who-fixed.png", [
+        {"n": 1, "sel": ".expertise-card", "text": "负责人 vs 实际修过的人：系统沿「工单→模块」与「工单→处理人」穿透分析，找出真正处理过工单的人与工单号", "lx": 650, "ly": 760, "w": 330},
+        {"n": 2, "sel": "#status-explanation", "text": "状态解释抽屉：详细展开系统判定「冲突」的依据与来源级别（正式规则 > 惯例 > 聊天）", "lx": 650, "ly": 480, "w": 330},
+    ], scroll_y=220)
+
+    # 8. Health page
+    pg.goto(f"{URL}/health", wait_until="networkidle")
+    pg.wait_for_timeout(500)
+    shot(pg, "08-health.png", [
+        {"n": 1, "sel": ".totals-grid", "text": "全库体检大盘：统计全库 494 个实体、824 条断言关系与 98 张关联工单", "lx": 25, "ly": 95, "w": 230},
+        {"n": 2, "sel": "#sec-single-points", "text": "单点风险排查：自动识别一人负责多个模块的关键人员，避免请假无人兜底", "lx": 25, "ly": 320, "w": 230},
+        {"n": 3, "sel": "#sec-owner-handlers", "text": "负责人 vs 实际处理人脱节：扫描负责人从未处理过工单的模块，识别沟通断层", "lx": 25, "ly": 740, "w": 230},
+    ])
+
     b.close()
