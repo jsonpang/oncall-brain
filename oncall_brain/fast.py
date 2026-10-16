@@ -35,6 +35,9 @@ _STOP = {"the", "and", "for", "our", "what", "where", "when", "who", "how", "sho
          "find", "get", "ask", "asks", "tell", "do", "did", "if", "is", "it", "my", "me"}
 
 
+WHO = re.compile(r"\b(who|whom|ping|escalat\w*|contact|reach|ask|expert\w*|owner)\b|谁|找", re.I)
+
+
 def _keywords(question: str) -> list[str]:
     words = re.findall(r"[A-Za-z][A-Za-z0-9_-]{2,}", question)
     seen, out = set(), []
@@ -164,6 +167,25 @@ def ask_fast(question: str, model: str | None = None, trace: list | None = None,
         for c in picked:
             record("read_knowledge", {"id": c["id"]}, tools.read_knowledge(c["id"]))
     timings["hop"] = time.perf_counter() - t
+
+    # "Who should I ask" about a module: the official owner is one read away; who
+    # has actually fixed it sits two hops off (Ticket-ABOUT->Module, Ticket-HANDLED_BY->Person).
+    if WHO.search(question):
+        t = time.perf_counter()
+        mods = [r["entity"]["id"] for r in tool_results
+                if (r.get("entity") or {}).get("kind") == "Module"][:2]
+        if not mods:  # no module read: take the one the read entities point at most
+            seen: dict[str, int] = {}
+            for r in tool_results:
+                for a in r.get("assertions", []):
+                    if a["other"]["kind"] == "Module":
+                        seen[a["other"]["id"]] = seen.get(a["other"]["id"], 0) + 1
+            mods = sorted(seen, key=lambda m: -seen[m])[:1]
+        if not mods:  # or the module the name search found but Jev left unread
+            mods = [c["id"] for c in cands if c.get("kind") == "Module"][:1]
+        for m in mods:
+            record("module_expertise", {"module_id": m}, tools.module_expertise(m))
+        timings["expertise"] = time.perf_counter() - t
 
     t = time.perf_counter()
     client = _openai_client()

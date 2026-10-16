@@ -530,8 +530,54 @@ def query_relations(start_id: str, predicates: list[str], direction: str = "out"
     return out
 
 
+def module_expertise(module_id: str, limit: int = 8) -> dict:
+    """Who has actually handled this module's tickets, next to who officially owns it.
+
+    Two hops the text alone cannot join: Ticket -ABOUT-> Module and
+    Ticket -HANDLED_BY-> Person, ranked by tickets handled.
+    """
+    t = now()
+    vis = lambda v: VISIBLE.replace("r.", v + ".")
+    rows = g().query(
+        "MATCH (k:Entity)-[a:ABOUT]->(m:Entity {id: $id}), (k)-[h:HANDLED_BY]->(p:Entity) "
+        "WHERE " + vis("a") + " AND " + vis("h") + " "
+        "RETURN k.id, k.kind, k.name, m.kind, m.name, p.id, p.kind, p.name, "
+        "a.aid, a.authority, a.evidence, h.aid, h.authority, h.evidence",
+        {"id": module_id, "now": t}).result_set
+    owners = g().query(
+        "MATCH (p:Entity)-[r:TECH_LEAD_OF|MAINTAINED_BY]-(m:Entity {id: $id}) WHERE " + VISIBLE + " "
+        "RETURN type(r), p.id, p.name, r.aid", {"id": module_id, "now": t}).result_set
+    paths, ev, people, seen = [], set(), {}, set()
+    for kid, kk, kn, mk, mn, pid, pk, pn, aaid, aauth, aev, haid, hauth, hev in rows:
+        if kid not in seen:
+            seen.add(kid)
+            paths.append({"nodes": [{"id": kid, "kind": kk, "name": kn}, {"id": module_id, "kind": mk, "name": mn}],
+                          "edges": ["ABOUT"], "aids": [aaid], "authority": [aauth],
+                          "evidence_ids": [aev], "superseded_nodes": []})
+            ev.update(aev or [])
+        paths.append({"nodes": [{"id": kid, "kind": kk, "name": kn}, {"id": pid, "kind": pk, "name": pn}],
+                      "edges": ["HANDLED_BY"], "aids": [haid], "authority": [hauth],
+                      "evidence_ids": [hev], "superseded_nodes": []})
+        ev.update(hev or [])
+        people.setdefault(pid, {"id": pid, "name": pn, "tickets": set()})["tickets"].add(kid)
+    handlers = sorted(({**v, "tickets": sorted(v["tickets"]), "count": len(v["tickets"])}
+                       for v in people.values()), key=lambda v: (-v["count"], v["id"]))[:limit]
+    owner_ids = {o[1] for o in owners}
+    for h in handlers:
+        h["is_owner"] = h["id"] in owner_ids
+    return {"status": "ok" if rows else "not_found", "start_id": module_id,
+            "direction": "out", "predicates": ["ABOUT", "HANDLED_BY"],
+            "owners": list({(p, i): {"predicate": p, "id": i, "name": n, "aid": aid}
+                            for p, i, n, aid in reversed(owners)}.values()),
+            "handlers": handlers, "tickets": len(seen), "paths": paths,
+            "evidence": _evidence(ev), "release_time": t,
+            "answer_status": "applicable" if rows else "not_found",
+            "note": ("handlers = people on this module's past tickets (history, not ownership); "
+                     "owners = official tech lead / maintainer")}
+
+
 TOOL_NAMES = ["describe_ontology", "search_knowledge", "read_knowledge",
-              "query_relations"]
+              "query_relations", "module_expertise"]
 
 TOOLS = {
     "describe_ontology": {
@@ -567,6 +613,13 @@ TOOLS = {
             "max_hops": {"type": "integer", "description": "1-3, default 1"},
             "context": {"type": "object", "description": "conditions for rule applicability"}},
             "required": ["start_id", "predicates"]},
+    },
+    "module_expertise": {
+        "fn": module_expertise,
+        "description": "For a Module: who has actually handled its past tickets (Ticket-ABOUT->Module, Ticket-HANDLED_BY->Person), next to its official tech lead/maintainer. Use for 'who should I ask / who knows this module'.",
+        "parameters": {"type": "object", "properties": {
+            "module_id": {"type": "string", "description": "Module id, e.g. MOD-01"}},
+            "required": ["module_id"]},
     },
 }
 

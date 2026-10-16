@@ -20,7 +20,7 @@ MAX_CALLS = 8
 MAX_RELATION_QUERIES = 6
 
 SYSTEM = """You answer operations questions for the fictional company AetherPulse
-using a knowledge graph of its support organisation. You have four read-only tools.
+using a knowledge graph of its support organisation. You have five read-only tools.
 
 HARD RULES:
 1. Use ONLY ids returned by a previous tool call. Never invent an id.
@@ -48,6 +48,13 @@ HARD RULES:
    deadlines, penalties), list every one of them by its exact name, not a
    subset or a paraphrase, and include the stated penalty or audit risk.
 5. MAINTAINED_BY proves only who curates a document. It is NEVER an escalation or troubleshooting target. The module escalation owner is TECH_LEAD_OF.
+   module_expertise lists who has actually handled a module's past tickets
+   (HANDLED_BY on tickets ABOUT the module). When the question is whom to ask or
+   escalate to, name the TECH_LEAD_OF owner first, then add who has handled this
+   module's tickets in practice, citing each HANDLED_BY aid with its ticket id.
+   In ## Answer, sentence one names the owner and sentence two names the people
+   who have handled it, each with one HANDLED_BY citation.
+   A handler is history, never the owner; skip this when no result is returned.
 6. Conflict requires the SAME subject and question slot, overlapping conditions,
    and mutually exclusive values. Different predicates, multi-valued facts and
    different granularity are not conflicts. Use the returned conflict records
@@ -420,7 +427,7 @@ def _finalize(question: str, answer: str, tool_results: list[dict], log: list[di
 def _summary(result: dict) -> dict:
     """What a call returned, in counts a reader can check (shown in the trace)."""
     out = {}
-    for key in ("candidates", "assertions", "paths", "source_evidence", "conflicts"):
+    for key in ("candidates", "assertions", "paths", "source_evidence", "conflicts", "handlers"):
         if result.get(key):
             out[key] = len(result[key])
     entity = result.get("entity") or {}
