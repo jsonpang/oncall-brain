@@ -1,11 +1,11 @@
 """Annotated walkthrough screenshots of the OnCall Brain web UI.
 
 Drives the running UI (http://127.0.0.1:8000) with Playwright, overlays
-numbered callouts with arrows pointing at real elements, and saves PNGs.
+numbered callouts with arrows on real elements, and saves PNGs. One point per
+screenshot; callouts are numbered in reading order.
 
-    python walkthrough_shots.py <out_dir>
+    python scripts/walkthrough_shots.py docs/walkthrough
 """
-import json
 import sys
 from pathlib import Path
 
@@ -17,8 +17,6 @@ URL = "http://127.0.0.1:8000"
 Q14 = ("A pipeline runner is stuck in a circular dependency deadlock. Should I ping "
        "Wesley Tate to log into the backend and terminate the zombie worker process?")
 
-# Overlay: for each item, a dashed box around the target, a numbered badge with
-# a label placed at (lx, ly) relative to the viewport, and an arrow to the box.
 OVERLAY_JS = r"""
 (items) => {
   document.getElementById('wt-overlay')?.remove();
@@ -31,9 +29,10 @@ OVERLAY_JS = r"""
   svg.style.cssText = 'position:absolute;inset:0';
   svg.innerHTML = '<defs><marker id="wt-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ffb020"/></marker></defs>';
   layer.append(svg);
+  document.body.append(layer);
   for (const it of items) {
     let r;
-    if (it.xy) { r = {left: it.xy[0]-18, top: it.xy[1]-18, width: 36, height: 36}; }
+    if (it.xy) { r = {left: it.xy[0]-22, top: it.xy[1]-22, width: 44, height: 44}; }
     else {
       const el = document.querySelector(it.sel);
       if (!el) continue;
@@ -42,44 +41,45 @@ OVERLAY_JS = r"""
     const box = document.createElementNS(NS, 'rect');
     box.setAttribute('x', r.left-4); box.setAttribute('y', r.top-4);
     box.setAttribute('width', r.width+8); box.setAttribute('height', r.height+8);
-    box.setAttribute('rx', 7); box.setAttribute('fill', 'none');
-    box.setAttribute('stroke', '#ffb020'); box.setAttribute('stroke-width', 2.5);
-    box.setAttribute('stroke-dasharray', '7 4');
+    box.setAttribute('rx', 8); box.setAttribute('fill', 'none');
+    box.setAttribute('stroke', '#ffb020'); box.setAttribute('stroke-width', 3);
     svg.append(box);
     const label = document.createElement('div');
-    label.style.cssText = `position:absolute;left:${it.lx}px;top:${it.ly}px;max-width:${it.w||260}px;background:#ffb020;color:#1b1300;font:600 14px/1.45 system-ui,"Microsoft YaHei",sans-serif;padding:8px 11px 8px 40px;border-radius:9px;box-shadow:0 6px 20px #0008`;
-    label.innerHTML = `<span style="position:absolute;left:9px;top:7px;width:23px;height:23px;border-radius:50%;background:#1b1300;color:#ffb020;display:grid;place-items:center;font-size:13px">${it.n}</span>${it.text}`;
+    label.style.cssText = `position:absolute;left:${it.lx}px;top:${it.ly}px;width:${it.w||280}px;background:#ffb020;color:#1b1300;font:600 15px/1.5 system-ui,"Microsoft YaHei",sans-serif;padding:9px 12px 9px 42px;border-radius:9px;box-shadow:0 6px 22px #000a`;
+    label.innerHTML = `<span style="position:absolute;left:10px;top:9px;width:24px;height:24px;border-radius:50%;background:#1b1300;color:#ffb020;display:grid;place-items:center;font-size:14px">${it.n}</span>${it.text}`;
     layer.append(label);
-    document.body.append(layer);
     const lb = label.getBoundingClientRect();
-    // arrow from the label edge nearest the target to the box edge
-    const tx = Math.min(Math.max(lb.left + lb.width/2, r.left), r.left + r.width);
-    const ty = Math.min(Math.max(lb.top + lb.height/2, r.top), r.top + r.height);
+    const tx = Math.min(Math.max(lb.left + lb.width/2, r.left - 4), r.left + r.width + 4);
+    const ty = Math.min(Math.max(lb.top + lb.height/2, r.top - 4), r.top + r.height + 4);
     const sx = Math.min(Math.max(tx, lb.left), lb.right);
     const sy = Math.min(Math.max(ty, lb.top), lb.bottom);
+    if (Math.hypot(tx - sx, ty - sy) < 8) continue;
     const line = document.createElementNS(NS, 'line');
     line.setAttribute('x1', sx); line.setAttribute('y1', sy);
-    line.setAttribute('x2', tx + (tx < sx ? 6 : tx > sx ? -6 : 0));
-    line.setAttribute('y2', ty + (ty < sy ? 6 : ty > sy ? -6 : 0));
+    line.setAttribute('x2', tx); line.setAttribute('y2', ty);
     line.setAttribute('stroke', '#ffb020'); line.setAttribute('stroke-width', 3);
     line.setAttribute('marker-end', 'url(#wt-a)');
     svg.append(line);
   }
-  document.body.append(layer);
 }
 """
 
 
-def cited_edge_xy(pg):
-    """Viewport position of the first cited edge's midpoint on the cytoscape canvas."""
-    return pg.evaluate("""() => {
-      const e = cy.edges('.cited')[0] || cy.edges()[0]; if (!e) return null;
+def rect(pg, sel):
+    return pg.evaluate(f"""() => {{ const e = document.querySelector({sel!r}); if (!e) return null;
+      const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; }}""")
+
+
+def edge_xy(pg, which=0, predicate=None):
+    pick = f"es.filter(x => x.data('predicate') === {predicate!r})[0] ||" if predicate else ""
+    return pg.evaluate(f"""() => {{
+      const es = cy.edges('.cited'); const e = {pick} es[{which}] || es[0]; if (!e) return null;
       const m = e.renderedMidpoint(), b = document.getElementById('graph').getBoundingClientRect();
-      return [b.left + m.x, b.top + m.y];
-    }""")
+      return [b.left + m.x, b.top + m.y]; }}""")
 
 
 def shot(pg, name, items):
+    pg.evaluate("() => { window.scrollTo(0,0); document.querySelectorAll('section').forEach(x => x.scrollTop = 0); }")
     pg.evaluate(OVERLAY_JS, items)
     pg.wait_for_timeout(250)
     pg.screenshot(path=str(OUT / name))
@@ -94,10 +94,7 @@ def ask(pg, question=None, example=None):
         pg.fill("#question", question)
         pg.locator("#ask-button").click()
     pg.locator("#activity").filter(has_text="完成").wait_for(timeout=180000)
-    pg.wait_for_timeout(1200)
-    # Zoom the graph onto the proof path so the lit edges are readable.
-    pg.evaluate("() => { const c = cy.$('.cited'); if (c.length) { cy.fit(c, 60); const z = Math.min(1.5, Math.max(0.9, cy.zoom())); cy.zoom(z); cy.center(c); } }")
-    pg.wait_for_timeout(400)
+    pg.wait_for_timeout(1500)
 
 
 with sync_playwright() as p:
@@ -106,58 +103,63 @@ with sync_playwright() as p:
     pg.goto(URL, wait_until="networkidle")
     pg.evaluate("() => localStorage.setItem('oncall-lang','zh')")
     pg.reload(wait_until="networkidle")
+    g = rect(pg, "#graph")  # graph pane, used as free space for labels
 
-    # 1. Home: where to ask
-    shot(pg, "01-home.png", [
-        {"n": 1, "sel": "#question", "text": "在这里输入问题（语料是英文，建议用英文问）", "lx": 640, "ly": 190, "w": 300},
-        {"n": 2, "sel": ".examples", "text": "或者直接点示例题，一键提问", "lx": 640, "ly": 300, "w": 260},
-        {"n": 3, "sel": ".mode", "text": "默认快速模式；勾选切到深度模式（模型逐步决定查询，约 1 分钟）", "lx": 120, "ly": 450, "w": 330},
-        {"n": 4, "sel": ".lang", "text": "中文 / 英文界面切换", "lx": 1250, "ly": 110, "w": 200},
+    # 1. Ask
+    shot(pg, "01-ask.png", [
+        {"n": 1, "sel": ".examples", "text": "点一道示例题（或在上面的框里输入英文问题），系统就开始查", "lx": g[0] + 20, "ly": 290, "w": 300},
     ])
 
-    # 2. Answer + proof path + trace
+    # 2. The conclusion
     ask(pg, example="Q1")
-    xy = cited_edge_xy(pg)
-    items = [
-        {"n": 1, "sel": "#answer-status", "text": "答案状态：applicable 可直接用；另有 superseded 已替代、conflict 冲突、not_found 资料里没有", "lx": 640, "ly": 470, "w": 290},
-        {"n": 2, "sel": "#answer .citation", "text": "每句话后面的方块是出处：编号 → 文件:行号。绿色=正式文档，黄色=聊天", "lx": 640, "ly": 620, "w": 290},
-        {"n": 3, "sel": "#trace .trace-card:nth-child(2)", "text": "Jev 从候选实体里挑出要读的几个，括号里是打分", "lx": 1000, "ly": 780, "w": 220},
-        {"n": 4, "sel": "#activity", "text": "耗时：查图+决策几秒，主要时间花在最后一次组装回答", "lx": 640, "ly": 330, "w": 290},
-    ]
-    shot(pg, "02-answer.png", items)
+    shot(pg, "02-conclusion.png", [
+        {"n": 1, "sel": ".conclusion", "text": "这就是答案：知识库在哪、谁维护、技术问题找谁", "lx": g[0] + 20, "ly": 560, "w": 300},
+        {"n": 2, "sel": "#answer-status", "text": "状态「可直接照做」：资料里有明确答案，没有冲突或过期", "lx": g[0] + 20, "ly": 420, "w": 300},
+    ])
 
-    # 2b. The proof path on the graph
-    xy = cited_edge_xy(pg)
-    gb = pg.evaluate("() => { const b = document.getElementById('graph').getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; }")
-    items = [{"n": 1, "sel": "#graph-summary", "text": "图下方写明：亮起几条边就是答案引用了几条关系", "lx": gb[0] + 10, "ly": gb[3] - 70, "w": 270}]
-    if xy:
-        items.insert(0, {"n": 2, "xy": xy, "text": "亮绿色粗线 = 答案引用的关系（证明路径），两端节点亮起并显示名字；其余变暗，悬停可看", "lx": gb[0] + 10, "ly": gb[1] + 10, "w": 300})
-    shot(pg, "02b-proof-path.png", items)
-
-    # 3. Click a citation: graph focuses its edge, dialog shows the source line
-    cite = pg.locator('#answer button.citation[data-matched="true"]').first
+    # 3. Why: click a citation, read the source line
+    cite = pg.locator(".conclusion .cite-n[data-matched='true']").first
+    if not cite.count():
+        cite = pg.locator("#answer .cite-n[data-matched='true']").first
     cite.click()
-    pg.wait_for_timeout(500)
-    # A modal dialog sits in the top layer and would dim the callouts; reopen it non-modal.
-    pg.evaluate("() => { window.scrollTo(0, 0); const d = document.getElementById('evidence-dialog'); d.close(); d.show(); Object.assign(d.style, {position: 'fixed', top: '320px', left: '420px', margin: 0, zIndex: 5000}); }")
-    pg.wait_for_timeout(200)
-    pg.evaluate("() => { document.activeElement?.blur(); window.scrollTo(0, 0); document.querySelectorAll('section').forEach(x => x.scrollTop = 0); }")
-    pg.wait_for_timeout(200)
-    shot(pg, "03-citation.png", [
-        {"n": 1, "sel": "#evidence-text", "text": "点开任一引用：弹出这条结论来自的原文那一行，图上对应的边同时闪一下", "lx": 420, "ly": 160, "w": 330},
-        {"n": 2, "sel": "#evidence-meta", "text": "权威级别：formal_rule 正式文档 > practice 惯例 > observation 单条聊天", "lx": 900, "ly": 190, "w": 300},
+    pg.wait_for_timeout(600)
+    pg.evaluate("() => { const d = document.getElementById('evidence-dialog'); d.close(); d.show(); Object.assign(d.style, {position:'fixed', top:'300px', left:'640px', margin:0, width:'560px', zIndex:5000}); }")
+    pg.wait_for_timeout(300)
+    shot(pg, "03-source.png", [
+        {"n": 1, "sel": ".conclusion .cite-n", "text": "凭什么这么说？点结论里的小编号", "lx": 330, "ly": 760, "w": 260},
+        {"n": 2, "sel": "#evidence-text", "text": "弹出原文那一行：来自哪份文件第几行，标着是正式文档还是聊天", "lx": 640, "ly": 180, "w": 330},
     ])
     pg.locator("#close-dialog").click()
+    pg.wait_for_timeout(1800)  # let the focus flash end
 
-    # 4. Trap question: maintainer is not the escalation target
+    # 4. The graph: lit edges are the basis of the conclusion
+    pg.evaluate("() => { const c = cy.$('.cited'); if (c.length) { cy.fit(c.connectedNodes(), 70); cy.zoom(Math.min(1.4, Math.max(0.9, cy.zoom()))); cy.center(c.connectedNodes()); } }")
+    pg.wait_for_timeout(400)
+    xy = edge_xy(pg)
+    items = [{"n": 2, "sel": "#graph-summary", "text": "变暗的是查过但没用上的内容；亮起几条线，结论就引用了几条关系", "lx": g[0] + 20, "ly": g[3] - 80, "w": 330}]
+    if xy:
+        items.insert(0, {"n": 1, "xy": xy, "text": "亮绿色的线 = 结论的依据。线上写着关系名，例如「这份知识库由谁维护」", "lx": g[0] + 20, "ly": g[1] + 20, "w": 330})
+    shot(pg, "04-graph-proof.png", items)
+
+    # 5. How it was found: the query trace
+    t = rect(pg, "#trace")
+    shot(pg, "05-how.png", [
+        {"n": 1, "sel": "#trace .trace-card:nth-child(1)", "text": "第一步：按问题里的关键词，先在原始资料里找相关的几行", "lx": t[0] - 340, "ly": 170, "w": 300},
+        {"n": 2, "sel": "#trace .trace-card:nth-child(2)", "text": "第二步：Jev 给图里的候选实体打分，挑出值得读的几个（括号里是分数）", "lx": t[0] - 340, "ly": 420, "w": 300},
+        {"n": 3, "sel": "#trace .trace-card:nth-child(3)", "text": "第三步：读这些实体的全部关系和出处，最后才让大模型写结论", "lx": t[0] - 340, "ly": 760, "w": 300},
+    ])
+
+    # 6. Trap question
     ask(pg, question=Q14)
-    xy = cited_edge_xy(pg)
+    pg.evaluate("() => { const c = cy.$('.cited'); if (c.length) { cy.fit(c.connectedNodes(), 70); cy.zoom(Math.min(1.4, Math.max(0.9, cy.zoom()))); cy.center(c.connectedNodes()); } }")
+    pg.wait_for_timeout(400)
+    xy = edge_xy(pg, predicate="TECH_LEAD_OF")
     items = [
-        {"n": 1, "sel": "#answer-status", "text": "陷阱题：问题前提（找 Wesley 修服务器）和资料冲突，状态是 conflict", "lx": 660, "ly": 220, "w": 300},
-        {"n": 2, "sel": "#answer .answer-heading", "text": "回答：别找 Wesley（他只维护文档），找 Pipeline 技术负责人 Colin Marsh，并按流程转单", "lx": 660, "ly": 600, "w": 300},
+        {"n": 1, "sel": "#question", "text": "这个问题本身就错了：它默认 Wesley 能去修服务器", "lx": g[0] + 20, "ly": 175, "w": 300},
+        {"n": 2, "sel": ".conclusion", "text": "系统没有顺着问题答，而是指出前提错误：别找 Wesley，找 Colin Marsh", "lx": g[0] + 20, "ly": 640, "w": 300},
+        {"n": 3, "sel": "#answer-status", "text": "所以状态是「说法冲突 / 问题前提不成立」", "lx": g[0] + 20, "ly": 330, "w": 300},
     ]
     if xy:
-        items.append({"n": 3, "xy": xy, "text": "图上是两种不同的关系：MAINTAINED_BY（维护文档）和 TECH_LEAD_OF（技术负责），悬停节点可看关系名", "lx": 660, "ly": 400, "w": 300})
-    shot(pg, "04-trap-conflict.png", items)
-    print(json.dumps({"q14_status": pg.locator("#answer-status").inner_text()}, ensure_ascii=False))
+        items.append({"n": 4, "xy": xy, "text": "依据在图上：Colin 和模块之间是「技术负责人」（TECH_LEAD_OF）关系；Wesley 只有「维护文档」关系", "lx": g[2] - 330, "ly": 480, "w": 310})
+    shot(pg, "06-trap.png", items)
     b.close()
