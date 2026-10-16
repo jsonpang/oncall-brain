@@ -17,6 +17,7 @@ from pathlib import Path
 
 from . import tools
 from .citations import citation_pairs, compact_tool_result, normalize_citations, parse_citation
+from .json_response import parse_model_json
 
 ROOT = Path(__file__).resolve().parent.parent
 MAX_CALLS = 8
@@ -348,7 +349,7 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
                 break
             name = call.function.name
             try:
-                args = json.loads(call.function.arguments or "{}")
+                args = parse_model_json(call.function.arguments or "{}")
             except json.JSONDecodeError:
                 args = {}
             if name == "query_relations":

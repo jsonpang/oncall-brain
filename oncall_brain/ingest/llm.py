@@ -26,6 +26,7 @@ import re
 from pathlib import Path
 
 from .. import schema as S
+from ..json_response import parse_model_json
 from . import evidence as EV
 from .labeler import label_of
 
@@ -237,7 +238,9 @@ Slice (line numbers in [ ] at line start, matching evidence_line):
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0, response_format={"type": "json_object"},
                 max_tokens=4000)
-            data = json.loads(r.choices[0].message.content or "{}")
+            data = parse_model_json(r.choices[0].message.content or "{}")
+            if not isinstance(data, dict):
+                raise ValueError("extraction response is not a JSON object")
             out = data.get("assertions") or []
             cf.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
             return out

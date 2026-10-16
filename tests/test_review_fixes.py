@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace as NS
 from unittest.mock import patch
 
-os.environ["GRAPH_NAME"] = "oncall_brain"
+os.environ.setdefault("GRAPH_NAME", "oncall_brain")
 from eval import run_gold as gold
 from oncall_brain import agent, db, tools
 from oncall_brain.ingest import llm, run, claims
