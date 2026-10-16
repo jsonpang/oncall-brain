@@ -60,13 +60,13 @@ direction. The trace's Cypher template names are passed through from the agent.
 ```powershell
 $env:GRAPH_NAME = 'oncall_brain'
 python -m unittest discover -s tests -p test_web.py -v
-python corpus/scan.py
 ```
 
 Tests use Flask's test client and real read-only graph queries for ontology,
 search, node and neighbors. The ask integration test substitutes only the LLM
-answer and replays real graph reads. It does not spend model calls. Missing
-FalkorDB or a missing evaluation corpus is a failure, not a skipped test.
+answer and replays real graph reads. It does not spend model calls. Ontology
+and page tests need no graph; the ones that read real rows skip when the
+configured graph is missing or empty.
 
 `tests/browser_smoke.py` is optional Playwright QA. It takes `--recording` (a
 saved `/api/ask` JSON response) and `--output` (a writable QA directory). It

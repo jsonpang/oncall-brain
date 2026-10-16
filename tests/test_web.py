@@ -1,18 +1,37 @@
-"""Read-only integration checks; never use a development or production graph."""
+"""Read-only integration checks against whatever graph GRAPH_NAME selects.
+
+The graph name is never hardcoded: set GRAPH_NAME (or leave it unset and the
+`oncall_brain` default applies). Tests that need real rows skip when that
+graph does not exist or is empty, so a fresh checkout passes without data.
+"""
 import os
 import unittest
 from unittest.mock import patch
 
-os.environ["GRAPH_NAME"] = "oncall_brain"
+os.environ.setdefault("GRAPH_NAME", "oncall_brain")
 
 from web.app import app, citations_from  # noqa: E402
 from oncall_brain import db  # noqa: E402
 
+GRAPH_NAME = db.GRAPH_NAME
+
+
+def _graph_has_rows() -> bool:
+    """True when the configured graph exists and holds at least one entity."""
+    try:
+        rows = db.g().ro_query("MATCH (n:Entity) RETURN n.id LIMIT 1").result_set
+    except Exception:  # noqa: BLE001 - no FalkorDB, or graph not built
+        return False
+    return bool(rows)
+
 
 class WebTests(unittest.TestCase):
     def setUp(self):
-        self.assertEqual(db.GRAPH_NAME, "oncall_brain")
         self.client = app.test_client()
+
+    def require_graph(self):
+        if not _graph_has_rows():
+            self.skipTest(f"graph {GRAPH_NAME} not built")
 
     def candidate(self):
         result = self.client.get("/api/search?q=Pipeline")
@@ -26,10 +45,12 @@ class WebTests(unittest.TestCase):
         self.assertIn("HAS_RESOURCE", result.json["predicates"])
 
     def test_search_real_graph(self):
+        self.require_graph()
         self.candidate()
         self.assertEqual(self.client.get("/api/search?q=zz-no-such-entity-zz").json["status"], "not_found")
 
     def test_node_real_graph(self):
+        self.require_graph()
         node_id = self.candidate()
         result = self.client.get(f"/api/node/{node_id}")
         self.assertEqual(result.status_code, 200)
@@ -40,6 +61,7 @@ class WebTests(unittest.TestCase):
         self.assertTrue(all(k in evidence for k in ("source", "locator", "excerpt", "authority")))
 
     def test_neighbors_real_graph(self):
+        self.require_graph()
         node_id = self.candidate()
         result = self.client.get(f"/api/neighbors/{node_id}")
         self.assertEqual(result.status_code, 200)
@@ -53,6 +75,7 @@ class WebTests(unittest.TestCase):
 
     def test_ask_uses_its_own_tool_results_without_llm(self):
         from oncall_brain import tools
+        self.require_graph()
         node_id = self.candidate()
         trace = [{"tool": "read_knowledge", "args": {"id": node_id},
                   "template": ["read_entity"], "status": "ok"}]

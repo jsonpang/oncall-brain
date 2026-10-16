@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
 
 HOST = os.environ.get("FALKOR_HOST", "127.0.0.1")
-PORT = int(os.environ.get("FALKOR_PORT", "16379"))
+PORT = int(os.environ.get("FALKOR_PORT", "6379"))
 GRAPH_NAME = os.environ.get("GRAPH_NAME", "oncall_brain")
 
 _g = None
