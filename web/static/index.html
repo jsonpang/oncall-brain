@@ -84,6 +84,7 @@ const STEP = {
     read_knowledge: ['读图', '读这个实体的全部关系，以及每条关系来自哪一行原文。结论只能用这里读到的内容。', (s,a) => `「${s.name||a.id}」：${s.assertions||0} 条关系${s.superseded?'，已被新规则替代':''}${s.conflicts?`，发现 ${s.conflicts} 处冲突`:''}`],
     search_knowledge: ['搜索实体', '按名称在图里找可能相关的实体。', (s,a) => `搜「${a.query}」：${s.candidates||0} 个候选${s.source_evidence?`，${s.source_evidence} 行原文`:''}`],
     query_relations: ['沿关系查询', '从一个实体出发，沿指定关系走 1–3 步。', (s,a) => `${s.paths||0} 条路径`],
+    module_expertise: ['谁真正修过', '名单上的负责人不一定最懂。沿「工单 → 涉及模块」和「工单 → 处理人」走两步，找出实际处理过这个模块问题的人。', (s,a) => `「${a.module_id}」：${s.handlers||0} 位处理过工单的人`],
     describe_ontology: ['查看本体', '了解图里有哪些实体类型和关系。', () => '已读取'],
   },
   en: {
@@ -95,6 +96,7 @@ const STEP = {
     read_knowledge: ['Read the graph', 'Read every relation of this entity and the source line behind each. The answer may only use what is read here.', (s,a) => `"${s.name||a.id}": ${s.assertions||0} relations${s.superseded?', superseded':''}${s.conflicts?`, ${s.conflicts} conflict(s)`:''}`],
     search_knowledge: ['Search entities', 'Find candidate entities by name.', (s,a) => `"${a.query}": ${s.candidates||0} candidates${s.source_evidence?`, ${s.source_evidence} source lines`:''}`],
     query_relations: ['Follow relations', 'Walk 1-3 hops along chosen relations.', (s,a) => `${s.paths||0} paths`],
+    module_expertise: ['Who has actually fixed it', 'The listed owner is not always the one who knows. Two hops, Ticket -> about module and Ticket -> handled by, find who has actually handled this module's tickets.', (s,a) => `"${a.module_id}": ${s.handlers||0} people have handled its tickets`],
     describe_ontology: ['Read the ontology', 'Which entity kinds and relations exist.', () => 'read'],
   }
 };
