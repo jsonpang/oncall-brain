@@ -74,8 +74,8 @@ Choose a status supported by tools relevant to the question. You may report
 not_found even when a tool returned unrelated applicable facts.
 Then use these markdown sections (omit a section only when empty):
 ## Answer
-One or two sentences that directly answer the question asked -- the conclusion
-a reader can act on -- each ending with its citation. Omit when not_found.
+At most two short sentences that directly answer the question asked -- the
+conclusion a reader can act on -- each ending with its citation. Omit when not_found.
 ## Next step
 Concrete action the asker should take now. Concrete names, paths, forms, deadlines.
 ## Basis

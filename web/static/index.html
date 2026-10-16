@@ -6,6 +6,8 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23101419'/><g stroke='%2379dfb2' stroke-width='4' stroke-linecap='round'><line x1='20' y1='22' x2='44' y2='18'/><line x1='20' y1='22' x2='30' y2='46'/><line x1='44' y1='18' x2='30' y2='46'/></g><circle cx='20' cy='22' r='7' fill='%238abaff'/><circle cx='44' cy='18' r='6' fill='%23bdadff'/><circle cx='30' cy='46' r='8' fill='%2379dfb2'/></svg>">
   <title>OnCall Brain · Graph-backed answers</title>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
   <style>
     :root{color-scheme:dark;--bg:#101419;--panel:#181e26;--line:#303b48;--text:#e5edf7;--muted:#a2afbf;--mint:#79dfb2;--blue:#8abaff;--amber:#f5c56c;--red:#ff939e}
     *{box-sizing:border-box}html,body{overflow-x:hidden}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 system-ui,sans-serif}button,input,textarea{font:inherit}button{cursor:pointer;border:1px solid var(--line);border-radius:7px;padding:8px 12px;background:#253140;color:var(--text)}button:hover{border-color:var(--mint)}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--mint);outline-offset:2px}header{padding:19px 25px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}h1{font-size:20px;margin:0;letter-spacing:-.5px}header p{margin:2px 0 0;color:var(--muted);font-size:12px}.brand{color:var(--mint)}.live{color:var(--mint);font-size:12px}main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1.1fr) minmax(0,.7fr);gap:1px;background:var(--line);min-height:calc(100vh - 89px)}section{padding:22px;background:var(--panel);min-width:0}h2{font-size:12px;letter-spacing:1.3px;color:var(--muted);text-transform:uppercase;margin:0 0 16px}.examples{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}.examples button{font-size:12px;padding:6px 9px}textarea,input{background:#111820;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:12px;width:100%}textarea{min-height:115px;resize:vertical}.askbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.mode{display:flex;align-items:center;gap:6px;cursor:pointer}.mode input{width:auto;margin:0}.primary{background:var(--mint);color:#10261b;font-weight:650;border-color:transparent}.hint{color:var(--muted);font-size:12px}#answer{margin-top:22px;overflow-wrap:anywhere}.answer-line{white-space:pre-wrap;margin:8px 0}.answer-heading{font-size:16px;color:#fff;margin:22px 0 9px}.badge{display:inline-block;padding:3px 9px;border-radius:5px;font-size:11px;border:1px solid currentColor;margin:3px 5px 3px 0}.applicable,.formal_rule{color:var(--mint)}.conflict,.not_found{color:var(--red)}.superseded,.stale{color:var(--muted)}.insufficient_context,.observation,.practice{color:var(--amber)}.citation{padding:2px 5px;margin:2px;font-size:11px;text-align:left;overflow-wrap:anywhere;max-width:100%;color:var(--mint);background:#162c27}.citation.chat{color:var(--amber);background:#31291a;border-style:dashed}.graph-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.graph-head h2{margin:0}#graph{height:470px;min-height:330px;border:1px solid var(--line);border-radius:9px;background:radial-gradient(ellipse at center,#202d36,#111820)}.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--muted);margin:10px 0 18px}.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;background:var(--mint)}.legend .chat-dot{background:var(--amber)}.legend .node-dot{background:var(--blue)}.searchbar{display:flex;gap:7px}.searchbar input{padding:8px}#search-results{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}#search-results button{font-size:12px}#node-info{white-space:pre-wrap;font-size:12px;color:var(--muted);overflow-wrap:anywhere}#trace{display:grid;gap:11px}.trace-card{border:1px solid var(--line);border-radius:8px;padding:12px}.trace-title{font:600 12px ui-monospace,monospace;color:var(--blue)}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.6 ui-monospace,monospace;color:var(--muted);margin:8px 0}.templates{color:var(--mint);font:11px/1.6 ui-monospace,monospace}.empty{border:1px dashed var(--line);padding:23px 16px;border-radius:8px;color:var(--muted);font-size:13px}dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;width:min(760px,92vw);max-height:85vh;padding:24px}dialog::backdrop{background:#000a}.dialog-head{display:flex;justify-content:space-between;gap:15px;align-items:start}#evidence-title{font-size:15px;overflow-wrap:anywhere}#evidence-text{font:14px/1.8 system-ui,sans-serif;color:var(--text);border-left:2px solid var(--mint);padding:14px;background:#111820}.error{color:var(--red)}#activity{min-height:20px;margin-top:9px}.footnote{font-size:11px;color:var(--muted);margin-top:16px}#status-source{font-size:11px;color:var(--muted)}@media(min-width:1450px){#graph{height:570px}}@media(max-width:1100px){main{grid-template-columns:1fr 1fr}section:last-child{grid-column:1/-1}#trace{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}}@media(max-width:720px){main{display:block}section{border-bottom:1px solid var(--line);padding:18px}header{padding:15px 18px}#graph{height:380px}.live{display:none}}
@@ -16,26 +18,35 @@
   .examples-box{margin:12px 0}.examples-box summary{cursor:pointer;font-size:12px;color:var(--blue);margin-bottom:8px}.examples{display:block;margin:0}.ex-group{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 8px}.ex-label{font-size:11px;color:var(--muted);width:100%;margin-top:2px}.ex-group button{font-size:12px;padding:5px 9px}
   .proof-item{margin:6px 0 10px}.proof-sentence{margin:0 0 4px;font-size:13px;color:var(--text);line-height:1.55}.proof-textonly{margin:2px 0 0;font-size:12px;color:var(--amber);padding-left:10px;border-left:2px solid var(--amber)}
   .gctl{display:flex;gap:6px;flex-wrap:wrap}.gctl button{padding:6px 10px}.gnav{margin:-4px 0 8px;font-size:11px}.legend .lg-title{color:var(--text);font-weight:600}.legend span{display:inline-flex;align-items:center;gap:5px}.legend-kinds{margin-bottom:4px}.trace-use{margin:6px 0;font-size:12px;color:var(--text)}.trace-use b{display:block;margin-bottom:4px}.trace-card.unused{opacity:.55}.trace-card.unused .trace-use{color:var(--muted)}
+  .tabs{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.tabs button{border:0;border-radius:0;padding:7px 13px;background:transparent;color:var(--muted)}.tabs button.on{background:var(--mint);color:#10261b;font-weight:650}#path{height:420px;border:1px solid var(--line);border-radius:9px;background:#111820;margin:6px 0 12px;position:relative}#path .empty{position:absolute;inset:16px;display:grid;place-items:center;text-align:center}.cite-n{cursor:pointer;text-decoration:underline}.cite-hint{margin:8px 0 0;font-size:12px}.conclusion.conflict{border-color:var(--amber);background:#2b2414}.conclusion.conflict h3{color:var(--amber)}.conclusion.superseded{border-color:var(--blue);background:#15202f}.conclusion.superseded h3{color:var(--blue)}.conclusion.not_found{border-color:var(--muted);background:#1a1f26}.conclusion.not_found h3{color:var(--muted)}#trace-box summary{cursor:pointer;color:var(--blue);font-size:13px;margin-bottom:10px}#q-label{margin:6px 0 0;color:var(--amber)}
   </style>
 </head>
 <body>
-<header><div><h1><span class="brand">◈</span> OnCall Brain</h1><p data-i18n="tagline"></p></div><div class="headright"><span class="live" data-i18n="live"></span><div class="lang" role="group" aria-label="Language"><button type="button" data-lang="zh">中文</button><button type="button" data-lang="en">EN</button></div></div></header>
+<header><div><h1><span class="brand">◈</span> OnCall Brain</h1><p data-i18n="tagline"></p></div><div class="headright"><div class="lang" role="group" aria-label="Language"><button type="button" data-lang="zh">中文</button><button type="button" data-lang="en">EN</button></div></div></header>
 <main>
   <section aria-label="Ask and answer">
     <h2 data-i18n="h_ask"></h2>
-    <form id="ask-form"><label class="hint" for="question" data-i18n="ask_label"></label><textarea id="question" maxlength="4000" required data-i18n-ph="ask_ph"></textarea><details class="examples-box" open><summary data-i18n="examples"></summary><div class="examples" id="examples"></div></details><div class="askbar"><button class="primary" id="ask-button" type="submit" data-i18n="ask_btn"></button><label class="hint mode"><input type="checkbox" id="deep"> <span data-i18n="deep"></span></label></div><p class="hint" data-i18n="cited"></p></form>
+    <form id="ask-form"><label class="hint" for="question" data-i18n="ask_label"></label><textarea id="question" maxlength="4000" required data-i18n-ph="ask_ph"></textarea><p class="hint" id="q-label"></p><details class="examples-box" open><summary data-i18n="examples"></summary><div class="examples" id="examples"></div></details><div class="askbar"><button class="primary" id="ask-button" type="submit" data-i18n="ask_btn"></button><label class="hint mode"><input type="checkbox" id="deep"> <span data-i18n="deep"></span></label></div><p class="hint" data-i18n="cited"></p></form>
     <div id="activity" class="hint" role="status" aria-live="polite"></div><div id="answer-status"></div><div id="status-source"></div><details id="glossary" class="glossary"></details>
     <article id="answer" aria-live="polite"><div class="empty" data-i18n="answer_empty"></div></article>
   </section>
   <section aria-label="Knowledge graph">
-    <div class="graph-head"><h2 data-i18n="h_graph"></h2><div class="gctl"><button id="zoom-in" type="button" title="+">＋</button><button id="zoom-out" type="button" title="-">－</button><button id="fit" type="button" data-i18n="fit"></button><button id="fit-proof" type="button" data-i18n="fit_proof"></button></div></div><p class="hint gnav" data-i18n="gnav"></p>
-    <div id="graph" role="img"></div>
-    <div class="legend legend-kinds"><span class="lg-title" data-i18n="lg_nodes"></span><span><svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="#bdadff"/></svg><span data-i18n="k_person"></span></span><span><svg width="14" height="14"><polygon points="7,1 13,4.5 13,9.5 7,13 1,9.5 1,4.5" fill="#8abaff"/></svg><span data-i18n="k_module"></span></span><span><svg width="14" height="14"><rect x="1" y="1" width="12" height="12" rx="3" fill="#79dfb2"/></svg><span data-i18n="k_rule"></span></span><span><svg width="14" height="14"><polygon points="7,1 13,7 7,13 1,7" fill="#6fd3e0"/></svg><span data-i18n="k_resource"></span></span><span><svg width="16" height="12"><rect x="1" y="2" width="14" height="8" fill="#9aa9bd"/></svg><span data-i18n="k_procedure"></span></span><span><svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="none" stroke="#ffd27a" stroke-width="2.5"/></svg><span data-i18n="lg_root"></span></span></div>
-    <div class="legend"><span class="lg-title" data-i18n="lg_edges"></span><span><i class="cited-dot"></i><span data-i18n="lg_cited"></span></span><span><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#4b6f68" stroke-width="2"/></svg><span data-i18n="lg_rule"></span></span><span><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#f5c56c" stroke-width="2" stroke-dasharray="4 3"/></svg><span data-i18n="lg_chat"></span></span></div>
-    <p class="hint" id="graph-summary" data-i18n="graph_hint"></p><div id="proof-list"></div>
-    <form id="search-form" class="searchbar"><input id="search" aria-label="Search graph" data-i18n-ph="search_ph" maxlength="500" required><button type="submit" data-i18n="search"></button></form><div id="search-results"></div><div id="node-info"></div>
+    <div class="graph-head"><h2 data-i18n="h_graph"></h2><div class="tabs" role="tablist"><button type="button" data-view="path" class="on" data-i18n="tab_path"></button><button type="button" data-view="explore" data-i18n="tab_explore"></button></div></div>
+    <div id="view-path">
+      <p class="hint" data-i18n="path_hint"></p>
+      <div id="path" role="img"><div class="empty" data-i18n="path_empty"></div></div>
+      <div id="proof-list"></div>
+    </div>
+    <div id="view-explore" hidden>
+      <div class="graph-head"><div class="gctl"><button id="zoom-in" type="button" title="+">＋</button><button id="zoom-out" type="button" title="-">－</button><button id="fit" type="button" data-i18n="fit"></button><button id="fit-proof" type="button" data-i18n="fit_proof"></button></div></div><p class="hint gnav" data-i18n="gnav"></p>
+      <div id="graph" role="img"></div>
+      <div class="legend legend-kinds"><span class="lg-title" data-i18n="lg_nodes"></span><span><svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="#bdadff"/></svg><span data-i18n="k_person"></span></span><span><svg width="14" height="14"><polygon points="7,1 13,4.5 13,9.5 7,13 1,9.5 1,4.5" fill="#8abaff"/></svg><span data-i18n="k_module"></span></span><span><svg width="14" height="14"><rect x="1" y="1" width="12" height="12" rx="3" fill="#79dfb2"/></svg><span data-i18n="k_rule"></span></span><span><svg width="14" height="14"><polygon points="7,1 13,7 7,13 1,7" fill="#6fd3e0"/></svg><span data-i18n="k_resource"></span></span><span><svg width="16" height="12"><rect x="1" y="2" width="14" height="8" fill="#9aa9bd"/></svg><span data-i18n="k_procedure"></span></span><span><svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="none" stroke="#ffd27a" stroke-width="2.5"/></svg><span data-i18n="lg_root"></span></span></div>
+      <div class="legend"><span class="lg-title" data-i18n="lg_edges"></span><span><i class="cited-dot"></i><span data-i18n="lg_cited"></span></span><span><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#4b6f68" stroke-width="2"/></svg><span data-i18n="lg_rule"></span></span><span><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#f5c56c" stroke-width="2" stroke-dasharray="4 3"/></svg><span data-i18n="lg_chat"></span></span></div>
+      <p class="hint" id="graph-summary" data-i18n="graph_hint"></p>
+      <form id="search-form" class="searchbar"><input id="search" aria-label="Search graph" data-i18n-ph="search_ph" maxlength="500" required><button type="submit" data-i18n="search"></button></form><div id="search-results"></div><div id="node-info"></div>
+    </div>
   </section>
-  <section aria-label="Tool trace"><div class="graph-head"><h2 data-i18n="h_trace"></h2><button id="ontology" type="button" data-i18n="ontology"></button></div><div id="trace"><div class="empty" data-i18n="trace_empty"></div></div><p class="footnote" data-i18n="footnote"></p></section>
+  <section aria-label="Tool trace"><div class="graph-head"><h2 data-i18n="h_trace"></h2><button id="ontology" type="button" data-i18n="ontology"></button></div><details id="trace-box"><summary id="trace-sum" data-i18n="trace_empty"></summary><div id="trace"></div></details><p class="footnote" data-i18n="footnote"></p></section>
 </main>
 <dialog id="evidence-dialog"><div class="dialog-head"><strong id="evidence-title">Evidence</strong><button id="close-dialog" type="button" aria-label="Close evidence">✕</button></div><div id="evidence-meta"></div><pre id="evidence-text"></pre></dialog>
 <script>
@@ -49,7 +60,7 @@ const I18N = {
     all_evidence:'全部返回证据', budget:'工具预算用尽（{r}），请留意回答中的缺项。', no_trace:'没有返回查询记录。', nodes_summary:'{n} 个节点 · {e} 条关系 · 点击节点展开', truncated:'关系查询已截断为 50 条路径。',
     cdn_fail:'图组件加载失败，请检查网络后刷新；回答和引用仍可使用。', busy_deep:'深度模式：模型正在一步步决定查询，约 1 分钟…', busy_fast:'正在查图，然后组装回答…',
     done:'完成 · {mode} · {steps} 步 · {ev} 条证据', timing:' · 查图+决策 {g} 秒，组装 {c} 秒，共 {t} 秒', mode_fast:'快速模式', mode_deep:'深度模式', not_found_entity:'not_found · 没找到实体', onto_title:'本体 / 受控工具契约',
-    status_src:'状态来源：{s} · 证据：本题查询结果', assertions:'条关系', lg_cited:'答案引用的关系（证明路径）', conclusion:'结论', lg_nodes:'点 = 实体：', lg_edges:'线 = 关系（线上的字是关系名）：', k_person:'人 / 团队 / 角色', k_module:'模块', k_rule:'规则 / 通知', k_resource:'文档 / 频道 / 表单', k_procedure:'流程 / 步骤 / 工单', fit_proof:'回到证明路径', gnav:'拖动可平移；按住 Ctrl 滚动滚轮缩放（直接滚轮是滚动页面）；悬停节点看名称和关系，点击节点展开邻居。', read_why_jev:'Jev 判断它和问题相关（打分 {p}），所以读它。', read_why_hop:'它是上一步实体的邻居，Jev 判断答案可能在它身上（打分 {p}）。', read_why_model:'大模型自己决定读它。', read_got:'读到 {n} 条关系。', read_used:'对结论的贡献：结论引用了它的 {n} 条关系', read_unused:'对结论的贡献：没有用上（读了但结论没引用，图上已调暗）。', examples:'参考提问（17 题，点一下直接提问）', proves:'结论的每一句，依据是什么', by_graph:'图上的关系', by_text:'只有原文支撑，图中没有对应关系', text_line:'原文', raw:'原始参数与查询模板', trace_howto:'怎么用这份记录：答案看起来不对时，从上往下看是哪一步出了问题。候选里没有正确的实体，是搜索没搜到；候选里有但没被选中，是 Jev 判断错了；读到了但结论里没写，是大模型漏写了。每一步都能和左边结论里的出处对上。', why:'为什么', result:'结果', sec_next:'下一步怎么做', sec_basis:'依据', sec_practice:'实际常见做法', sec_conflict:'冲突 / 已替代', sec_gaps:'资料缺口', sec_searched:'查过什么', sec_missing:'缺少什么', status_label:'答案状态', glossary:'名词解释（看不懂点这里）', st_applicable:'可直接照做', st_superseded:'规则已被新通知替代', st_conflict:'说法冲突 / 问题前提不成立', st_insufficient_context:'缺条件，需要你补充', st_not_found:'资料里没有答案', st_stale:'信息可能过期', proof:'亮起的 {e} 条边就是答案引用的关系，其余为本题读过但未引用的上下文。', no_proof:'这次答案没有引用图上的关系，只引用了原文行。'},
+    status_src:'状态来源：{s} · 证据：本题查询结果', assertions:'条关系', lg_cited:'答案引用的关系（证明路径）', conclusion:'结论', conclusion_conflict:'注意：说法冲突 / 问题前提不成立', conclusion_superseded:'结论（规则已更新，旧规则作废）', conclusion_not_found:'资料里没有答案', conclusion_insufficient_context:'结论（还缺一个条件）', cite_hint:'点结论里的小编号，可以看到这句话的原文出处。', tab_path:'答案路径', tab_explore:'探索全图', path_hint:'从左往右读：你的问题 → 查到的事实 → 结论。每个方块是一个实体（写着它是什么），箭头上是关系。点箭头看原文。', path_empty:'提问后，这里会画出支撑结论的那几条事实。', path_none:'这次结论只引用了原文，没有用到图上的关系。', your_q:'你的问题', found:'查到', expired:'已失效', proof_hint:'点任一条，左侧答案路径里对应的箭头会高亮。', trace_sum:'查询过程（共 {n} 步，想深究再展开）', you_asked:'你问的是：{q}', lg_nodes:'点 = 实体：', lg_edges:'线 = 关系（线上的字是关系名）：', k_person:'人 / 团队 / 角色', k_module:'模块', k_rule:'规则 / 通知', k_resource:'文档 / 频道 / 表单', k_procedure:'流程 / 步骤 / 工单', fit_proof:'回到证明路径', gnav:'拖动可平移；按住 Ctrl 滚动滚轮缩放（直接滚轮是滚动页面）；悬停节点看名称和关系，点击节点展开邻居。', read_why_jev:'Jev 判断它和问题相关（打分 {p}），所以读它。', read_why_hop:'它是上一步实体的邻居，Jev 判断答案可能在它身上（打分 {p}）。', read_why_model:'大模型自己决定读它。', read_got:'读到 {n} 条关系。', read_used:'对结论的贡献：结论引用了它的 {n} 条关系', read_unused:'对结论的贡献：没有用上（读了但结论没引用，图上已调暗）。', examples:'参考提问（17 题，点一下直接提问）', proves:'结论的每一句，依据是什么', by_graph:'图上的关系', by_text:'只有原文支撑，图中没有对应关系', text_line:'原文', raw:'原始参数与查询模板', trace_howto:'怎么用这份记录：答案看起来不对时，从上往下看是哪一步出了问题。候选里没有正确的实体，是搜索没搜到；候选里有但没被选中，是 Jev 判断错了；读到了但结论里没写，是大模型漏写了。每一步都能和左边结论里的出处对上。', why:'为什么', result:'结果', sec_next:'下一步怎么做', sec_basis:'依据', sec_practice:'实际常见做法', sec_conflict:'冲突 / 已替代', sec_gaps:'资料缺口', sec_searched:'查过什么', sec_missing:'缺少什么', status_label:'答案状态', glossary:'名词解释（看不懂点这里）', st_applicable:'可直接照做', st_superseded:'规则已被新通知替代', st_conflict:'说法冲突 / 问题前提不成立', st_insufficient_context:'缺条件，需要你补充', st_not_found:'资料里没有答案', st_stale:'信息可能过期', proof:'亮起的 {e} 条边就是答案引用的关系，其余为本题读过但未引用的上下文。', no_proof:'这次答案没有引用图上的关系，只引用了原文行。'},
   en: {tagline:'Graph Hacks / Evidence before action', live:'● READ-ONLY KNOWLEDGE GRAPH', h_ask:'01 / Ask your operations brain', ask_label:'Ask a question', ask_ph:'Where is the knowledge base? Who handles this ticket? Which rule is still in force?',
     ex_q1:'Q1 · Knowledge base owner', ex_q4:'Q4 · Channels to join', ex_q15:'Q15 · Who fixes the queue', ask_btn:'Ask Brain ↗', deep:'Deep mode: the model picks every query itself (slower, ~1 min)', cited:'Every claim is cited · click a citation to read the source',
     answer_empty:'Start with a real question. The answer, its evidence and the subgraph it came from appear here.', h_graph:'02 / Follow the evidence', fit:'Fit graph', lg_root:'Read for this answer', lg_entity:'Related entity', lg_rule:'Formal rule', lg_chat:'Chat / observation / practice',
@@ -58,7 +69,7 @@ const I18N = {
     all_evidence:'All returned evidence', budget:'Tool budget used up ({r}): check the answer for gaps.', no_trace:'No query trace returned.', nodes_summary:'{n} nodes · {e} assertions · click a node to expand', truncated:'Relation query truncated to 50 paths.',
     cdn_fail:'Graph component failed to load. Refresh after checking the network; answers and citations still work.', busy_deep:'Deep mode: the model is choosing queries step by step, about a minute...', busy_fast:'Querying the graph, then composing the answer...',
     done:'Done · {mode} · {steps} steps · {ev} evidence lines', timing:' · graph+decisions {g}s, compose {c}s, total {t}s', mode_fast:'fast mode', mode_deep:'deep mode', not_found_entity:'not_found · no matching entity', onto_title:'Ontology / controlled tool contract',
-    status_src:"Status source: {s} · Evidence: this question's own results", assertions:'assertions', lg_cited:'Relation cited by the answer (proof path)', conclusion:'Answer', lg_nodes:'Dots = entities:', lg_edges:'Lines = relations (label = relation name):', k_person:'person / team / role', k_module:'module', k_rule:'rule / notice', k_resource:'doc / channel / form', k_procedure:'procedure / step / ticket', fit_proof:'Proof path', gnav:'Drag to pan; Ctrl + wheel to zoom (plain wheel scrolls the page); hover a node for names and relations, click to expand.', read_why_jev:'Jev judged it relevant to the question (score {p}).', read_why_hop:'A neighbour of the previous entities; Jev judged the answer may sit here (score {p}).', read_why_model:'The model chose to read it.', read_got:'{n} relations read.', read_used:'Contribution: the answer cites {n} of its relations', read_unused:'Contribution: none (read but not cited; dimmed on the graph).', examples:'Example questions (17, click to ask)', proves:'What backs each sentence of the answer', by_graph:'graph relation', by_text:'source text only, no graph relation', text_line:'source', raw:'Raw arguments and query templates', trace_howto:'How to use this trace: when an answer looks wrong, read top-down to find the step that failed. The right entity is missing from the candidates: search missed it. It is a candidate but not chosen: Jev misjudged. It was read but the answer leaves it out: the LLM dropped it. Every step lines up with the citations in the answer.', why:'Why', result:'Result', sec_next:'Next step', sec_basis:'Basis', sec_practice:'Actual common practice', sec_conflict:'Conflicts / Superseded', sec_gaps:'Gaps', sec_searched:'Searched', sec_missing:'Missing', status_label:'Status', glossary:'Glossary', st_applicable:'safe to act on', st_superseded:'rule replaced by a newer notice', st_conflict:'sources disagree / premise is wrong', st_insufficient_context:'a condition is missing', st_not_found:'no answer in the material', st_stale:'may be out of date', proof:'The {e} lit edges are the relations the answer cites; the rest is context it read but did not cite.', no_proof:'This answer cites source lines only, no graph relation.'}
+    status_src:"Status source: {s} · Evidence: this question's own results", assertions:'assertions', lg_cited:'Relation cited by the answer (proof path)', conclusion:'Answer', conclusion_conflict:'Note: conflicting sources / wrong premise', conclusion_superseded:'Answer (rule updated, old rule void)', conclusion_not_found:'Not in the material', conclusion_insufficient_context:'Answer (a condition is missing)', cite_hint:'Click a small number in the answer to see the source line.', tab_path:'Answer path', tab_explore:'Explore graph', path_hint:'Read left to right: your question → the facts found → the answer. Each box is an entity (with its type); arrows are relations. Click an arrow for the source.', path_empty:'After you ask, the facts behind the answer are drawn here.', path_none:'This answer cites source text only, no graph relation.', your_q:'Your question', found:'found', expired:'void', proof_hint:'Click one to highlight its arrow in the answer path.', trace_sum:'Query process ({n} steps, expand for details)', you_asked:'You asked: {q}', lg_nodes:'Dots = entities:', lg_edges:'Lines = relations (label = relation name):', k_person:'person / team / role', k_module:'module', k_rule:'rule / notice', k_resource:'doc / channel / form', k_procedure:'procedure / step / ticket', fit_proof:'Proof path', gnav:'Drag to pan; Ctrl + wheel to zoom (plain wheel scrolls the page); hover a node for names and relations, click to expand.', read_why_jev:'Jev judged it relevant to the question (score {p}).', read_why_hop:'A neighbour of the previous entities; Jev judged the answer may sit here (score {p}).', read_why_model:'The model chose to read it.', read_got:'{n} relations read.', read_used:'Contribution: the answer cites {n} of its relations', read_unused:'Contribution: none (read but not cited; dimmed on the graph).', examples:'Example questions (17, click to ask)', proves:'What backs each sentence of the answer', by_graph:'graph relation', by_text:'source text only, no graph relation', text_line:'source', raw:'Raw arguments and query templates', trace_howto:'How to use this trace: when an answer looks wrong, read top-down to find the step that failed. The right entity is missing from the candidates: search missed it. It is a candidate but not chosen: Jev misjudged. It was read but the answer leaves it out: the LLM dropped it. Every step lines up with the citations in the answer.', why:'Why', result:'Result', sec_next:'Next step', sec_basis:'Basis', sec_practice:'Actual common practice', sec_conflict:'Conflicts / Superseded', sec_gaps:'Gaps', sec_searched:'Searched', sec_missing:'Missing', status_label:'Status', glossary:'Glossary', st_applicable:'safe to act on', st_superseded:'rule replaced by a newer notice', st_conflict:'sources disagree / premise is wrong', st_insufficient_context:'a condition is missing', st_not_found:'no answer in the material', st_stale:'may be out of date', proof:'The {e} lit edges are the relations the answer cites; the rest is context it read but did not cite.', no_proof:'This answer cites source lines only, no graph relation.'}
 };
 let lang = 'zh', lastData = null;
 try { lang = localStorage.getItem('oncall-lang') || 'zh'; } catch(e) {}
@@ -100,6 +111,67 @@ const REL = {
        HOLDS_ROLE:'{s} holds the role {t}', EMPLOYED_BY:'{s} is employed by {t}', COVERS_TERRITORY:'{s} covers {t}', PRECEDES:'"{s}" comes before "{t}"',
        PARALLEL_WITH:'"{s}" runs alongside "{t}"', ABOUT:'Ticket {s} is about {t}', HANDLED_BY:'Ticket {s} was handled by {t}'}
 };
+const KIND = {
+  zh: {Person:'人', Team:'团队', Vendor:'供应商', Role:'角色', Module:'模块', Resource:'资源', Rule:'规则', Notice:'通知', Procedure:'流程', WorkStage:'步骤', Ticket:'工单', Territory:'区域'},
+  en: {Person:'Person', Team:'Team', Vendor:'Vendor', Role:'Role', Module:'Module', Resource:'Resource', Rule:'Rule', Notice:'Notice', Procedure:'Procedure', WorkStage:'Step', Ticket:'Ticket', Territory:'Territory'}
+};
+const ARROW = {
+  zh: {HAS_STEP:'包含步骤', GOVERNED_BY:'要遵守', MAINTAINED_BY:'维护人', TECH_LEAD_OF:'技术负责', HAS_RESOURCE:'资料在', MEMBER_OF:'属于', USES_RESOURCE:'使用',
+       REQUIRES_FIELD:'必填', SUPERSEDES:'替代了', APPLIES_TO:'适用于', PERFORMED_BY:'执行人', RECEIVED_BY:'接收人', HOLDS_ROLE:'担任', EMPLOYED_BY:'受雇于',
+       COVERS_TERRITORY:'负责区域', PRECEDES:'之后是', PARALLEL_WITH:'同时进行', ABOUT:'涉及', HANDLED_BY:'处理人'},
+  en: {HAS_STEP:'has step', GOVERNED_BY:'governed by', MAINTAINED_BY:'maintained by', TECH_LEAD_OF:'tech lead of', HAS_RESOURCE:'material in', MEMBER_OF:'member of', USES_RESOURCE:'uses',
+       REQUIRES_FIELD:'requires', SUPERSEDES:'supersedes', APPLIES_TO:'applies to', PERFORMED_BY:'performed by', RECEIVED_BY:'received by', HOLDS_ROLE:'holds role', EMPLOYED_BY:'employed by',
+       COVERS_TERRITORY:'covers', PRECEDES:'then', PARALLEL_WITH:'alongside', ABOUT:'about', HANDLED_BY:'handled by'}
+};
+const KCOLOR = {Person:'#bdadff', Team:'#bdadff', Vendor:'#bdadff', Role:'#bdadff', Module:'#8abaff', Resource:'#6fd3e0', Rule:'#79dfb2', Notice:'#79dfb2',
+                Procedure:'#9aa9bd', WorkStage:'#9aa9bd', Ticket:'#9aa9bd', Territory:'#9aa9bd'};
+function renderPath() {
+  if (!cyPath || !cy) return;
+  cyPath.elements().remove();
+  const box = $('path'); box.querySelector('.empty')?.remove();
+  const allCited = citedEdges();
+  // Only the facts behind the conclusion: edges its sentences cite, or cited edges whose
+  // entities the conclusion names. Fall back to every cited edge when it names none.
+  const concl = conclusionLines.join(' ');
+  const low = concl.toLowerCase();
+  const nm = id => { const n = cy.getElementById(id); return (n.data('label') || id).replace(/^\w+:/, '').replace(/_/g, ' ').toLowerCase(); };
+  const cc = citations.filter(c => concl.includes(c.text));
+  let cited = allCited.filter(e => cc.some(c => c.aid === e.data('aid')) || [e.data('source'), e.data('target')].some(id => nm(id).length > 3 && low.includes(nm(id))));
+  if (!cited.length) cited = allCited;
+  // Also show what replaced an old rule, even when the answer cites only one side.
+  const ids = new Set(allCited.connectedNodes().map(n => n.id()));  // replacements anywhere in the answer
+  const sup = cy.edges().filter(e => e.data('predicate') === 'SUPERSEDES' && (ids.has(e.data('source')) || ids.has(e.data('target'))));
+  const edges = cited.union(sup);
+  if (!edges.length) { box.append(el('div', t('path_none'), 'empty')); return; }
+  const clean = n => (n.data('label') || n.id()).replace(/^\w+:/, '').replace(/_/g, ' ');
+  const els = [];
+  edges.connectedNodes().forEach(n => {
+    const kind = n.data('kind'), old = n.data('superseded');
+    els.push({group: 'nodes', data: {id: n.id(), kind, old: !!old, color: old ? '#7c8796' : (KCOLOR[kind] || '#8abaff'),
+      label: `${KIND[lang][kind] || kind || ''}${old ? ' · ' + t('expired') : ''}\n${clean(n)}`}});
+  });
+  edges.forEach(e => els.push({group: 'edges', data: {id: 'p' + e.id(), source: e.data('source'), target: e.data('target'), aid: e.data('aid'),
+    sup: e.data('predicate') === 'SUPERSEDES', label: ARROW[lang][e.data('predicate')] || e.data('predicate')}}));
+  // The question on the far left, pointing at the chain's starting entities.
+  const q = askedLabel || ($('question').value || '').slice(0, 48);
+  els.push({group: 'nodes', data: {id: '__q', q: true, color: '#ffd27a', label: `${t('your_q')}\n${q}`}});
+  const targets = new Set(edges.filter(e => e.data('predicate') !== 'SUPERSEDES').map(e => e.data('target')));
+  const starts = edges.connectedNodes().filter(n => !targets.has(n.id()) && !n.data('superseded'));
+  (starts.length ? starts : edges.connectedNodes().slice(0, 1)).forEach(n =>
+    els.push({group: 'edges', data: {id: 'q-' + n.id(), source: '__q', target: n.id(), q: true, label: t('found')}}));
+  cyPath.add(els);
+  const lay = (window.cytoscapeDagre || (cytoscape.extensions && 1)) ? {name: 'dagre', rankDir: 'LR', nodeSep: 26, rankSep: 70, edgeSep: 12, padding: 16}
+                                                                      : {name: 'breadthfirst', directed: true, padding: 16};
+  try { cyPath.layout(lay).run(); } catch (err) { cyPath.layout({name: 'breadthfirst', directed: true, padding: 16}).run(); }
+  cyPath.fit(undefined, 16); if (cyPath.zoom() > 1.15) { cyPath.zoom(1.15); cyPath.center(); }
+}
+function focusPath(aid) {
+  if (!cyPath) return;
+  const es = cyPath.edges().filter(e => e.data('aid') === aid);
+  cyPath.elements().removeClass('focus');
+  es.addClass('focus'); es.connectedNodes().addClass('focus');
+  setTimeout(() => cyPath.elements().removeClass('focus'), 1600);
+}
 const GLOSSARY = {
   zh: [
     ['答案状态', 'applicable 可直接照做；superseded 问到的规则已被新通知替代，会给出旧规则、新规则和生效日期；conflict 资料之间说法冲突，或问题本身的前提和资料矛盾；insufficient_context 规则带条件（如工单级别），需要你补充；not_found 资料里没有答案，系统只说查了什么、缺什么，不猜。'],
@@ -171,7 +243,7 @@ function renderExamples() {
       if (!examples[`Q${n}`]) continue;
       const b = el('button', `Q${n} · ${QLABEL[lang][n]}`); b.type = 'button'; b.dataset.example = `Q${n}`;
       b.title = examples[`Q${n}`];
-      b.addEventListener('click', () => { if (busy) return; $('question').value = examples[`Q${n}`]; $('ask-form').requestSubmit(); });
+      b.addEventListener('click', () => { if (busy) return; $('question').value = examples[`Q${n}`]; askedLabel = QLABEL[lang][n]; $('q-label').textContent = t('you_asked', {q: askedLabel}); $('ask-form').requestSubmit(); });
       row.append(b);
     }
     box.append(row);
@@ -180,7 +252,7 @@ function renderExamples() {
 const $ = id => document.getElementById(id);
 const el = (tag, text, cls) => { const e = document.createElement(tag); if(text !== undefined) e.textContent = text; if(cls) e.className = cls; return e; };
 const states = new Set(['applicable','conflict','superseded','insufficient_context','not_found','stale']);
-let pickedBy = {}, conclusionLines = [], citeNumbers = new Map(), evidence = [], citations = [], cy = null, busy = false, graphRevision = 0;
+let askedLabel = '', cyPath = null, pickedBy = {}, conclusionLines = [], citeNumbers = new Map(), evidence = [], citations = [], cy = null, busy = false, graphRevision = 0;
 async function api(path, options) {
   const response = await fetch(path, options);
   const data = await response.json();
@@ -228,16 +300,14 @@ function renderAnswer(data) {
     const m=line.match(/^#{1,6}\s+(.*)$/);
     if(m) {
       const key=SEC[m[1].trim().toLowerCase()];
-      if(key==='conclusion') { inConclusion=true; box=el('div',undefined,'conclusion'); box.append(el('h3',t('conclusion'))); $('answer').append(box); }
+      if(key==='conclusion') { inConclusion=true; box=el('div',undefined,`conclusion ${state}`); box.append(el('h3',I18N[lang]['conclusion_'+state] ? t('conclusion_'+state) : t('conclusion'))); $('answer').append(box); }
       else { inConclusion=false; box=null; $('answer').append(el('h3',key?t(key):m[1],'answer-heading')); }
       continue;
     }
     if(inConclusion) conclusionLines.push(line.replace(/^\s*[-*]\s+/,''));
     const p=el('p',undefined,'answer-line'); appendCitations(p,line.replace(/^\s*[-*]\s+/,'')); (box || $('answer')).append(p);
   }
-  const details=el('details'); details.append(el('summary',`${t('all_evidence')} / ${evidence.length}`));
-  for(const item of evidence){const button=el('button',`${item.source}:${item.locator} · ${item.authority}`,`citation ${item.authority==='formal_rule'?'':'chat'}`);button.type='button';button.onclick=()=>showEvidence(item);details.append(button);}
-  $('answer').append(details);
+  document.querySelector('#answer .conclusion')?.append(el('p', t('cite_hint'), 'hint cite-hint'));
   if(data.stop_reason && data.stop_reason!=='completed') $('answer').append(el('p',t('budget',{r:data.stop_reason}),'hint'));
   for(const warning of data.warnings || []) $('answer').append(el('p',warning,'error'));
   $('trace').replaceChildren(el('p',t('trace_howto'),'trace-howto'));
@@ -262,7 +332,8 @@ function renderAnswer(data) {
     card.append(raw); $('trace').append(card);
   }
   if(!data.trace?.length) $('trace').append(el('p',t('no_trace'),'hint'));
-  graphRevision++; if(cy) { cy.elements().remove(); mergeGraph(data.graph || {nodes:[],edges:[]}); markProof(); annotateReads(); }
+  $('trace-sum').textContent = t('trace_sum', {n: data.trace?.length || 0}); $('trace-sum').removeAttribute('data-i18n');
+  graphRevision++; if(cy) { cy.elements().remove(); mergeGraph(data.graph || {nodes:[],edges:[]}); markProof(); annotateReads(); renderPath(); }
 }
 function citedEdges(aid) {
   // Graph edges whose assertion id appears in the answer's citations.
@@ -296,7 +367,7 @@ function markProof() {
   const say = e => (REL[lang][e.data('predicate')] || ('{s} ' + e.data('predicate') + ' {t}'))
     .replace('{s}', name(e.data('source'))).replace('{t}', name(e.data('target')));
   if (conclusionLines.length) {
-    list.append(el('h4', t('proves')));
+    list.append(el('h4', t('proves')), el('p', t('proof_hint'), 'hint'));
     conclusionLines.forEach((line, i) => {
       const cites = citations.filter(c => line.includes(c.text));
       // An edge backs this sentence if the sentence cites it, or the answer cites it elsewhere
@@ -335,6 +406,7 @@ function markProof() {
   }
 }
 function focusCitation(aid) {
+  focusPath(aid);
   if(!cy) return;
   const edges = citedEdges(aid);
   if(!edges.length) return;
@@ -385,6 +457,27 @@ if(window.cytoscape) {
     {selector:'edge[directed = false]',style:{'target-arrow-shape':'none'}},
     {selector:':selected',style:{'border-width':3,'border-color':'#fff'}}]});
   cy.on('tap','node',event=>expandNode(event.target.id()));
+  cyPath = cytoscape({container: $('path'), elements: [], userZoomingEnabled: false, userPanningEnabled: true, boxSelectionEnabled: false, autoungrabify: true, style: [
+    {selector: 'node', style: {shape: 'round-rectangle', width: 'label', height: 'label', padding: '10px', label: 'data(label)', 'text-wrap': 'wrap', 'text-max-width': 170,
+      'text-valign': 'center', 'text-halign': 'center', 'font-size': 14, 'line-height': 1.35, color: '#e5edf7', 'background-color': '#1b2430', 'border-width': 2, 'border-color': 'data(color)'}},
+    {selector: 'node[?old]', style: {color: '#8a96a6', 'border-style': 'dashed', 'background-color': '#161b22'}},
+    {selector: 'node[?q]', style: {'border-style': 'dashed', 'background-color': '#2a2414', color: '#ffe2a8'}},
+    {selector: 'edge', style: {width: 2.2, 'line-color': '#79dfb2', 'target-arrow-color': '#79dfb2', 'target-arrow-shape': 'triangle', 'curve-style': 'bezier',
+      label: 'data(label)', 'font-size': 13, color: '#e5edf7', 'text-background-color': '#111820', 'text-background-opacity': 1, 'text-background-padding': 3, 'text-rotation': 'none'}},
+    {selector: 'edge[?sup]', style: {'line-style': 'dashed', 'line-color': '#8a96a6', 'target-arrow-color': '#8a96a6', color: '#c9d2dd'}},
+    {selector: 'edge[?q]', style: {'line-style': 'dashed', 'line-color': '#ffd27a', 'target-arrow-color': '#ffd27a', color: '#ffe2a8'}},
+    {selector: '.focus', style: {'line-color': '#ffffff', 'target-arrow-color': '#ffffff', 'border-color': '#ffffff', width: 4}}]});
+  cyPath.on('tap', 'edge', ev => {
+    const aid = ev.target.data('aid'); if (!aid) return;
+    const c = citations.find(x => x.aid === aid); const item = c && evidence.find(e => e.id === c.evidence_id);
+    if (item) showEvidence(item, c.text);
+  });
+  document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('on', x === b));
+    const explore = b.dataset.view === 'explore';
+    $('view-explore').hidden = !explore; $('view-path').hidden = explore;
+    if (explore) { cy.resize(); const c = cy.$('.cited'); cy.fit(c.length ? c : undefined, 40); } else { cyPath.resize(); cyPath.fit(undefined, 16); }
+  }));
   // Plain wheel scrolls the page; Ctrl+wheel zooms around the pointer.
   $('graph').addEventListener('wheel', ev => {
     if (!ev.ctrlKey) return;
@@ -409,6 +502,7 @@ $('ask-form').addEventListener('submit',async event=>{
   catch(error){activity(error.message,true);}
   finally{busy=false;$('ask-button').disabled=false;document.querySelectorAll('[data-example]').forEach(b=>b.disabled=false);}
 });
+$('question').addEventListener('input', () => { askedLabel = ''; $('q-label').textContent = ''; });
 fetch('/api/examples').then(r => r.json()).then(list => { for (const q of list) examples[`Q${q.qid}`] = q.question; renderExamples(); }).catch(() => {});
 $('search-form').onsubmit=async event=>{event.preventDefault();try{const data=await api(`/api/search?q=${encodeURIComponent($('search').value)}`);$('search-results').replaceChildren();for(const n of data.candidates || []){const b=el('button',`${n.name} · ${n.kind}`);b.onclick=()=>expandNode(n.id);$('search-results').append(b);}if(!data.candidates?.length)$('search-results').append(el('span',t('not_found_entity'),'hint'));}catch(error){activity(error.message,true);}};
 $('ontology').onclick=async()=>{try{const data=await api('/api/ontology');$('evidence-title').textContent=t('onto_title');$('evidence-meta').replaceChildren();$('evidence-text').textContent=JSON.stringify(data,null,2);$('evidence-dialog').showModal();}catch(error){activity(error.message,true);}};
