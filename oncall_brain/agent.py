@@ -255,6 +255,24 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
     answer = ""
     stop_reason = "completed"
 
+    # Source lines sharing the question's informative words, fetched before the
+    # loop so official passages the model would not think to search for (and
+    # the list items that follow them) are in view. Not counted in the budget.
+    try:
+        pre = tools.related_source_lines(question)
+    except Exception:  # noqa: BLE001 - retrieval aid only; the tools still work
+        pre = []
+    if pre:
+        result = compact_tool_result({"status": "ok", "source_evidence": pre})
+        result["citations"] = [f"[{aid} → {locator}]"
+                               for aid, locator in sorted(citation_pairs([result]))]
+        tool_results.append(result)
+        messages.append({"role": "user", "content":
+            "Source lines that share words with the question (retrieved automatically; "
+            "they may be irrelevant -- use and cite only those that answer it, and still "
+            "check the graph with the tools):\n"
+            + json.dumps(result, ensure_ascii=False, default=str)})
+
     for step in range(max_calls):
         resp = client.chat.completions.create(
             model=model, messages=messages, tools=_tool_specs(),

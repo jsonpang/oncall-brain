@@ -248,6 +248,68 @@ def _with_context(rows, before: int = 2, after: int = 8) -> list[dict]:
     return sorted(out.values(), key=lambda e: (e["source"], int(e["locator"])))[:24]
 
 
+def _source_rows(q: str, limit: int) -> list:
+    """Verbatim source matches, official documents first and chat after, so the
+    alphabetical order of file names does not hide every Doc behind chats."""
+    rows = g().query(TEMPLATES["source_search"], {"q": q, "limit": 200}).result_set
+    docs = [r for r in rows if r[4] == "formal_rule"]
+    rest = [r for r in rows if r[4] != "formal_rule"]
+    half = max(1, limit // 2)
+    picked = docs[:half] + rest[:limit - min(half, len(docs))]
+    return picked[:limit]
+
+
+_SYNONYMS = {"tier": "l", "escalate": "escalat", "escalation": "escalat",
+             "escalating": "escalat", "message": "chat", "messaging": "chat",
+             "ping": "chat", "dm": "chat"}
+_QSTOP = {"the", "a", "an", "and", "or", "of", "to", "for", "in", "on", "my", "our", "is",
+          "it", "i", "we", "do", "what", "where", "when", "who", "how", "should", "can",
+          "if", "this", "that", "with", "they", "me", "be", "are", "not", "which", "does",
+          "there", "their", "them", "from", "at", "by", "as", "any", "into", "out", "about"}
+_LINES: list[dict] | None = None
+
+
+def _terms(text: str) -> list[str]:
+    text = re.sub(r"\btier\s*(\d)\b", r"l\1", text.casefold())
+    out = []
+    for w in re.findall(r"[a-z0-9][a-z0-9_.-]*[a-z0-9]|[a-z0-9]", text):
+        w = _SYNONYMS.get(w, w)
+        if w not in _QSTOP and len(w) > 1:
+            out.append(w[:7] if w.isalpha() else w)
+    return out
+
+
+def related_source_lines(question: str, k: int = 8) -> list[dict]:
+    """Source lines sharing the most informative words with the question
+    (IDF-weighted), each with the lines that follow it in the same thread."""
+    global _LINES
+    import math
+    if _LINES is None:
+        rows = g().query("MATCH (e:Evidence) RETURN e.id, e.source, e.locator, "
+                         "e.excerpt, e.authority").result_set
+        _LINES = [dict(zip(["id", "source", "locator", "excerpt", "authority"], r),
+                       terms=set(_terms(r[3] or ""))) for r in rows]
+    q = set(_terms(question))
+    if not q or not _LINES:
+        return []
+    df = {t: sum(t in e["terms"] for e in _LINES) for t in q}
+    n = len(_LINES)
+    scored = []
+    for e in _LINES:
+        hit = q & e["terms"]
+        if len(hit) >= 2:
+            s = sum(math.log(n / (1 + df[t])) for t in hit)
+            scored.append((s, e))
+    scored.sort(key=lambda x: -x[0])
+    rows = [(e["id"], e["source"], e["locator"], e["excerpt"], e["authority"])
+            for _, e in scored[:k]]
+    records = [r for r in rows if r[1].endswith(".jsonl")]  # one record per line
+    prose = [r for r in rows if not r[1].endswith(".jsonl")]
+    out = _with_context(prose, before=1, after=3)
+    return out + [dict(zip(["id", "source", "locator", "excerpt", "authority"], r))
+                  for r in records]
+
+
 def search_knowledge(query: str, kind: str | None = None, limit: int = 12) -> dict:
     """Entity candidates by fulltext name match, with a substring fallback."""
     q = (query or "").strip()
@@ -270,8 +332,7 @@ def search_knowledge(query: str, kind: str | None = None, limit: int = 12) -> di
             "superseded_by": [r["superseded_by"] for r in sup.get(i, [])]}
            for i, k, n, s in rows]
     if not out:
-        sources = _with_context(g().query(TEMPLATES["source_search"],
-                                          {"q": q, "limit": int(limit)}).result_set)
+        sources = _with_context(_source_rows(q, int(limit)))
         if sources:
             return {"status": "ok", "answer_status": "applicable", "query": q,
                     "candidates": [], "source_evidence": sources}
@@ -279,7 +340,7 @@ def search_knowledge(query: str, kind: str | None = None, limit: int = 12) -> di
                 "note": "no entity in the current graph matches; do not guess an id"}
     # Exact phrases (error codes, component names) may also appear verbatim in
     # source lines that no entity name carries; surface those lines too.
-    sources = _with_context(g().query(TEMPLATES["source_search"], {"q": q, "limit": 6}).result_set)
+    sources = _with_context(_source_rows(q, 6))
     return {"status": "ok", "query": q, "candidates": out,
             **({"source_evidence": sources} if sources else {})}
 
@@ -306,6 +367,31 @@ def _rel_evidence(subj: str, aid: str, predicate: str, obj: str,
         for r in rows:
             out.extend(r[0] or [])
     return out
+
+
+def _nearby_sources(props: dict, evidence: list[dict], limit: int = 24) -> list[dict]:
+    """Source lines an assertion's own evidence line leaves out: the lines just
+    after it in the same thread (enumerations, conditions, penalties) and other
+    lines naming this entity verbatim."""
+    keys = ["id", "source", "locator", "excerpt", "authority"]
+    evidence = [e for e in evidence if isinstance(e, dict)]
+    have = {e["id"] for e in evidence}
+    ids = []
+    for e in evidence:
+        if str(e["locator"]).isdigit():
+            n = int(e["locator"])
+            ids += [f"ev:{e['source']}:{i}" for i in range(max(1, n - 1), n + 4)]
+    rows = g().query(TEMPLATES["evidence_by_id"], {"ids": sorted(set(ids))}).result_set if ids else []
+    near = [dict(zip(keys, r)) for r in rows]
+    name = (props.get("name") or "").strip()
+    if len(name) >= 8:
+        near += _with_context(_source_rows(name, 6), before=1, after=3)
+    out, seen = [], set(have)
+    for e in sorted(near, key=lambda e: (e["source"], int(e["locator"]))):
+        if e["id"] not in seen and (e.get("excerpt") or "").strip():
+            seen.add(e["id"])
+            out.append(e)
+    return out[:limit]
 
 
 def read_knowledge(id: str, context: dict | None = None) -> dict:
@@ -365,6 +451,9 @@ def read_knowledge(id: str, context: dict | None = None) -> dict:
     conflicts.extend(semantic)
     ev.update(extra_ev)
     out["evidence"] = _evidence(ev)
+    nearby = _nearby_sources(props, out["evidence"])
+    if nearby:
+        out["source_evidence"] = nearby
     if conflicts:
         out["conflicts"] = conflicts
     out["answer_status"] = ("conflict" if conflicts else "superseded" if out["superseded"]
