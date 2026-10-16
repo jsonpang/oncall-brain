@@ -729,11 +729,116 @@
       margin: 0;
     }
 
+    .risk-suggestion {
+      margin: 6px 0 0;
+      color: var(--mint);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .tools-divider {
+      margin-top: 8px;
+      padding-top: 20px;
+      border-top: 1px dashed var(--line);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .tools-title-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .tools-divider h2 {
+      font-size: 18px;
+      margin: 0;
+      color: var(--mint);
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tools-desc {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .impact-summary-box {
+      background: rgba(138, 186, 255, 0.08);
+      border: 1px solid rgba(138, 186, 255, 0.3);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: var(--text);
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .impact-summary-icon {
+      font-size: 16px;
+      line-height: 1.4;
+    }
+    .impact-summary-text {
+      flex: 1;
+      font-weight: 500;
+    }
+
+    .evidence-group-toggle {
+      margin-top: 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--code-bg);
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+    .evidence-group-summary {
+      cursor: pointer;
+      color: var(--blue);
+      font-weight: 600;
+      user-select: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .evidence-group-summary:hover {
+      color: var(--mint);
+    }
+    .evidence-group-body {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       header { padding: 14px 16px; }
       .page-container { padding: 16px 12px 36px; gap: 18px; }
-      .totals-grid { grid-template-columns: 1fr; }
+      .totals-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .total-card {
+        padding: 10px 8px;
+        text-align: center;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        min-width: 0;
+      }
+      .total-num {
+        font-size: 20px;
+        letter-spacing: -0.5px;
+      }
+      .total-label {
+        font-size: 10.5px;
+        line-height: 1.25;
+        letter-spacing: 0;
+        text-align: center;
+        word-break: break-word;
+      }
       .items-grid { grid-template-columns: 1fr; }
       .risk-section { padding: 16px; }
       .cf-values { flex-direction: column; align-items: stretch; }
@@ -750,6 +855,38 @@
     #sequence-content, #sequence-content > * { min-width:0; overflow-wrap:anywhere; }
     #sequence-content summary { color:var(--blue); cursor:pointer; }
     #sequence-content pre { white-space:pre-wrap; }
+    #sequence-content .sequence-evidence-toggle {
+      margin-top: 6px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--code-bg);
+      padding: 5px 8px;
+      font-size: 11.5px;
+    }
+    #sequence-content .sequence-evidence-summary {
+      cursor: pointer;
+      color: var(--blue);
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      word-break: break-all;
+    }
+    #sequence-content .sequence-evidence-summary:hover {
+      color: var(--mint);
+    }
+    #sequence-content .sequence-evidence-body {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed var(--line);
+    }
+    #sequence-content .sequence-evidence-item {
+      margin-bottom: 6px;
+    }
+    #sequence-content .sequence-evidence-item:last-child {
+      margin-bottom: 0;
+    }
   </style>
 </head>
 <body>
@@ -812,6 +949,7 @@
         </h2>
       </div>
       <p class="risk-desc" id="why-sp">某人一个人负责多个模块，请假就没人兜底。</p>
+      <p class="risk-suggestion" id="sug-sp">建议：为这些模块指定第二负责人（backup），或把知识写进模块知识库。</p>
     </div>
     <div id="content-sp"></div>
   </section>
@@ -826,6 +964,7 @@
         </h2>
       </div>
       <p class="risk-desc" id="why-oh">名义负责人不一定最熟悉现网，若负责人从未实际处理过工单（owner_handled=false），可能存在沟通断层或权责脱节。</p>
+      <p class="risk-suggestion" id="sug-oh">建议：把实际处理人加入升级名单，或请负责人复核这些工单的处理方式。</p>
     </div>
     <div id="content-oh"></div>
   </section>
@@ -840,6 +979,7 @@
         </h2>
       </div>
       <p class="risk-desc" id="why-cr">规则所有依据均来自聊天记录，没有正式文档支撑，容易出现口头约定过时或理解偏差。</p>
+      <p class="risk-suggestion" id="sug-cr">建议：把规则补进正式文档，或标为"惯例"。</p>
     </div>
     <div id="content-cr"></div>
   </section>
@@ -854,6 +994,7 @@
         </h2>
       </div>
       <p class="risk-desc" id="why-cf">单值关系上同一主体出现多个互斥值，导致运维执行时无所适从、决策歧义或产生误操作。</p>
+      <p class="risk-suggestion" id="sug-cf">建议：由文档维护人裁定保留哪个值。</p>
     </div>
     <div id="content-cf"></div>
   </section>
@@ -868,16 +1009,25 @@
         </h2>
       </div>
       <p class="risk-desc" id="why-ss">旧规则已被新规则废止，若仍残留在认知中，容易误导值班人员执行已作废的旧流程。</p>
+      <p class="risk-suggestion" id="sug-ss">建议：确认旧文档已下线或加上"已作废"标记。</p>
     </div>
     <div id="content-ss"></div>
   </section>
 
-  <!-- 6. 影响分析 (module impact) -->
+  <!-- 工具子标题 (Tools Divider) -->
+  <div class="tools-divider" id="sec-tools-header">
+    <div class="tools-title-line">
+      <h2 id="heading-tools">🛠️ 工具</h2>
+    </div>
+    <p class="tools-desc" id="desc-tools">排障与日常值班辅助工具，与上方 5 类风险区分。</p>
+  </div>
+
+  <!-- 影响分析 (module impact) -->
   <section class="risk-section" id="sec-impact">
     <div class="risk-header">
       <div class="risk-title-line">
         <h2>
-          <span id="title-impact">6. 影响分析</span>
+          <span id="title-impact">影响分析</span>
           <span class="badge badge-count" id="badge-impact">0</span>
         </h2>
       </div>
@@ -893,10 +1043,20 @@
     <div id="content-impact"></div>
   </section>
 
-  <section class="risk-section" aria-labelledby="sequence-title">
-    <h2 id="sequence-title">流程顺序</h2>
-    <label id="sequence-label" for="procedure-select">选择流程</label>
-    <select id="procedure-select"></select>
+  <!-- 流程顺序 (procedure sequence) -->
+  <section class="risk-section" id="sec-sequence" aria-labelledby="sequence-title">
+    <div class="risk-header">
+      <div class="risk-title-line">
+        <h2>
+          <span id="sequence-title">流程顺序</span>
+        </h2>
+      </div>
+      <p class="risk-desc" id="sequence-desc">新人照着做的步骤清单，按原文里的先后关系排序。</p>
+    </div>
+    <div class="impact-controls">
+      <label id="sequence-label" for="procedure-select">选择流程：</label>
+      <select id="procedure-select"></select>
+    </div>
     <div id="sequence-content" aria-live="polite"></div>
   </section>
 </main>
@@ -1072,10 +1232,12 @@ const I18N = {
 
     sec1_title: '1. 单点风险',
     sec1_why: '某人一个人负责多个模块，请假就没人兜底。',
+    sec1_sug: '建议：为这些模块指定第二负责人（backup），或把知识写进模块知识库。',
     sp_modules_count: '负责 {n} 个模块',
 
     sec2_title: '2. 负责人 vs 实际处理人',
     sec2_why: '名义负责人不一定最熟悉现网，若负责人从未实际处理过工单（owner_handled=false），可能存在沟通断层或权责脱节。',
+    sec2_sug: '建议：把实际处理人加入升级名单，或请负责人复核这些工单的处理方式。',
     badge_owner_handled: '✓ 负责人已参与处理',
     badge_owner_not_handled: '⚠️ 负责人从未处理过工单',
     lbl_owners: '名义负责人',
@@ -1085,22 +1247,30 @@ const I18N = {
 
     sec3_title: '3. 只有聊天记录支撑的规则',
     sec3_why: '规则所有依据均来自聊天记录，没有正式文档支撑，容易出现口头约定过时或理解偏差。',
+    sec3_sug: '建议：把规则补进正式文档，或标为"惯例"。',
     badge_chat_only: '仅聊天记录支撑',
     lbl_sources: '聊天记录出处',
     show_more_rules: '展开其余 {n} 条',
 
     sec4_title: '4. 说法冲突',
     sec4_why: '单值关系上同一主体出现多个互斥值，导致运维执行时无所适从、决策歧义或产生误操作。',
+    sec4_sug: '建议：由文档维护人裁定保留哪个值。',
     lbl_subject: '冲突主体',
     lbl_predicate: '关系',
 
     sec5_title: '5. 已被替代的旧规则',
     sec5_why: '旧规则已被新规则废止，若仍残留在认知中，容易误导值班人员执行已作废的旧流程。',
+    sec5_sug: '建议：确认旧文档已下线或加上"已作废"标记。',
     badge_void: '已废弃',
     badge_active: '新生效',
     lbl_effective: '替代生效日: {d}',
 
-    sec6_title: '6. 影响分析',
+    heading_tools: '🛠️ 工具',
+    desc_tools: '排障与日常值班辅助工具，与上方 5 类风险区分。',
+    sequence_desc: '新人照着做的步骤清单，按原文里的先后关系排序。',
+    n_sources: '{n} 条出处',
+
+    sec6_title: '影响分析',
     sec6_why: '分析某个模块出问题时会波及哪些人、团队、资源及区域，以及出问题时应通知谁。',
     lbl_select_mod: '选择分析模块：',
     btn_analyze: '分析',
@@ -1148,10 +1318,12 @@ const I18N = {
 
     sec1_title: '1. Single Point of Failure',
     sec1_why: 'One person leads multiple modules; risk of no backup if unavailable.',
+    sec1_sug: 'Recommendation: Designate a backup owner for these modules, or document the knowledge into module knowledge hubs.',
     sp_modules_count: 'Leads {n} modules',
 
     sec2_title: '2. Owners vs Actual Handlers',
     sec2_why: 'Nominal owners may not know live systems best; highlighted when the owner has never handled tickets (owner_handled=false).',
+    sec2_sug: 'Recommendation: Add actual handlers to the escalation path, or have nominal owners review how these tickets were handled.',
     badge_owner_handled: '✓ Owner has handled tickets',
     badge_owner_not_handled: '⚠️ Owner never handled tickets',
     lbl_owners: 'Nominal Owner(s)',
@@ -1161,22 +1333,30 @@ const I18N = {
 
     sec3_title: '3. Chat-Only Rules',
     sec3_why: 'Rules supported only by chat records without formal documentation; prone to outdated consensus or misunderstandings.',
+    sec3_sug: 'Recommendation: Formalize these rules into official documentation, or mark them as conventions.',
     badge_chat_only: 'Chat only',
     lbl_sources: 'Chat Sources',
     show_more_rules: 'Show {n} more',
 
     sec4_title: '4. Conflicting Claims',
     sec4_why: 'Multiple conflicting values exist for a single-valued relation on the same entity, causing operational ambiguity.',
+    sec4_sug: 'Recommendation: Have documentation maintainers arbitrate and resolve which value to keep.',
     lbl_subject: 'Subject',
     lbl_predicate: 'Predicate',
 
     sec5_title: '5. Superseded Rules',
     sec5_why: 'Old rules superseded by new notices; lingering references risk misleading engineers into executing obsolete procedures.',
+    sec5_sug: 'Recommendation: Ensure obsolete documents are retired or marked as "deprecated".',
     badge_void: 'Void',
     badge_active: 'Active',
     lbl_effective: 'Effective: {d}',
 
-    sec6_title: '6. Impact Analysis',
+    heading_tools: '🛠️ Tools',
+    desc_tools: 'Auxiliary tools for on-call engineers and troubleshooting, separated from the 5 risk sections above.',
+    sequence_desc: 'Step-by-step checklist for new on-call engineers, ordered by the precedence relations in the source documents.',
+    n_sources: '{n} sources',
+
+    sec6_title: 'Impact Analysis',
     sec6_why: 'Analyze who and what is affected when a module fails: owners, teams, resources, rules, affected territories/tenants, and who to notify.',
     lbl_select_mod: 'Select Module:',
     btn_analyze: 'Analyze',
@@ -1280,23 +1460,41 @@ function render() {
 
   document.getElementById('title-sp').textContent = t('sec1_title');
   document.getElementById('why-sp').textContent = t('sec1_why');
+  const sugSp = document.getElementById('sug-sp');
+  if (sugSp) sugSp.textContent = t('sec1_sug');
 
   document.getElementById('title-oh').textContent = t('sec2_title');
   document.getElementById('why-oh').textContent = t('sec2_why');
+  const sugOh = document.getElementById('sug-oh');
+  if (sugOh) sugOh.textContent = t('sec2_sug');
 
   document.getElementById('title-cr').textContent = t('sec3_title');
   document.getElementById('why-cr').textContent = t('sec3_why');
+  const sugCr = document.getElementById('sug-cr');
+  if (sugCr) sugCr.textContent = t('sec3_sug');
 
   document.getElementById('title-cf').textContent = t('sec4_title');
   document.getElementById('why-cf').textContent = t('sec4_why');
+  const sugCf = document.getElementById('sug-cf');
+  if (sugCf) sugCf.textContent = t('sec4_sug');
 
   document.getElementById('title-ss').textContent = t('sec5_title');
   document.getElementById('why-ss').textContent = t('sec5_why');
+  const sugSs = document.getElementById('sug-ss');
+  if (sugSs) sugSs.textContent = t('sec5_sug');
+
+  const hTools = document.getElementById('heading-tools');
+  if (hTools) hTools.textContent = t('heading_tools');
+  const dTools = document.getElementById('desc-tools');
+  if (dTools) dTools.textContent = t('desc_tools');
 
   document.getElementById('title-impact').textContent = t('sec6_title');
   document.getElementById('why-impact').textContent = t('sec6_why');
   document.getElementById('lbl-impact-select').textContent = t('lbl_select_mod');
   document.getElementById('btn-refresh-impact').textContent = t('btn_analyze');
+
+  const sDesc = document.getElementById('sequence-desc');
+  if (sDesc) sDesc.textContent = t('sequence_desc');
 
   if (currentImpactData) {
     renderImpact(currentImpactData);
@@ -1741,6 +1939,25 @@ const MOCK_IMPACT_DATA = {
   }
 };
 
+function generateImpactSummary(data, lang) {
+  if (!data || !data.module) return '';
+  const modId = data.module.id || 'MOD';
+  const owners = (data.owners || []).map(o => o.name).filter(Boolean);
+  const territoryCount = (data.affected_territories || []).length;
+  const ticketCount = data.tickets_count ?? 0;
+  const notifyCount = (data.notify_leads || []).length;
+
+  if (lang === 'en') {
+    const ownerText = owners.length ? `contact owner(s) ${owners.join(', ')} first` : 'no registered owner';
+    const notifyText = notifyCount > 0 ? `notify ${notifyCount} territory lead${notifyCount === 1 ? '' : 's'}.` : 'no territory leads to notify.';
+    return `If ${modId} fails: ${ownerText}; historically affected ${territoryCount} territor${territoryCount === 1 ? 'y' : 'ies'} across ${ticketCount} ticket${ticketCount === 1 ? '' : 's'}; ${notifyText}`;
+  } else {
+    const ownerText = owners.length ? `先找负责人 ${owners.join('、')}` : '暂无登记负责人';
+    const notifyText = notifyCount > 0 ? `应通知 ${notifyCount} 位区域负责人。` : '暂无需通知的区域负责人。';
+    return `${modId} 出问题：${ownerText}；历史上影响过 ${territoryCount} 个区域，共 ${ticketCount} 张工单；${notifyText}`;
+  }
+}
+
 function renderImpact(data) {
   currentImpactData = data;
   const container = document.getElementById('content-impact');
@@ -1758,30 +1975,38 @@ function renderImpact(data) {
 
   function renderEvidenceList(evIds) {
     if (!evIds || !evIds.length) return '';
-    return evIds.map(evid => {
-      const ev = evidenceMap.get(evid);
-      if (!ev) return '';
+    const validEvs = evIds.map(evid => evidenceMap.get(evid)).filter(Boolean);
+    if (!validEvs.length) return '';
+
+    const itemsHtml = validEvs.map(ev => {
       const auth = ev.authority || 'observation';
       const authBadgeClass = auth === 'formal_rule' ? 'badge-ok' : 'badge-warn';
+      const fileName = (ev.source || '').split(/[/\\]/).pop();
       return `
         <details class="evidence-toggle">
           <summary class="evidence-summary">
-            <span class="pred-pill">📜 ${escapeHtml(ev.source)}:${escapeHtml(ev.locator)}</span>
+            <span class="pred-pill">📜 ${escapeHtml(fileName)}:${escapeHtml(ev.locator)}</span>
             <span class="badge ${authBadgeClass}">${escapeHtml(auth)}</span>
           </summary>
           <div class="evidence-body">
-            <div class="evidence-meta"><strong>ID:</strong> <code>${escapeHtml(ev.id)}</code> | <strong>Locator:</strong> <code>${escapeHtml(ev.locator)}</code></div>
+            <div class="evidence-meta"><strong>${escapeHtml(currentLang === 'zh' ? '出处:' : 'Source:')}</strong> <code>${escapeHtml(ev.source)}:${escapeHtml(ev.locator)}</code></div>
             <pre class="evidence-excerpt">${escapeHtml(ev.excerpt || t('no_excerpt'))}</pre>
           </div>
         </details>
       `;
     }).join('');
-  }
 
-  function renderAids(aids) {
-    // Internal assertion ids mean nothing to a reader; the evidence chips below carry the proof.
-    return '';
-    return aids.map(aid => `<span class="mod-chip"><code>${escapeHtml(aid)}</code></span>`).join(' ');
+    if (validEvs.length > 1) {
+      return `
+        <details class="evidence-group-toggle">
+          <summary class="evidence-group-summary">📚 ${escapeHtml(t('n_sources', { n: validEvs.length }))}</summary>
+          <div class="evidence-group-body">
+            ${itemsHtml}
+          </div>
+        </details>
+      `;
+    }
+    return itemsHtml;
   }
 
   // 1. Owners & Teams
@@ -1791,7 +2016,6 @@ function renderImpact(data) {
         <span class="sp-person">👤 ${escapeHtml(o.name)}</span>
         <span class="badge badge-active">${escapeHtml(o.kind || 'Person')}</span>
       </div>
-      ${o.aids && o.aids.length ? `<div style="font-size:11px;color:var(--muted);">${renderAids(o.aids)}</div>` : ''}
       ${renderEvidenceList(o.evidence_ids)}
       ${o.teams && o.teams.length ? `
         <div style="margin-top:6px;font-size:12px;">
@@ -1814,7 +2038,6 @@ function renderImpact(data) {
         <span><strong>📚 ${escapeHtml(res.name)}</strong> <code>${escapeHtml(res.id)}</code></span>
         <span class="badge badge-active">${escapeHtml(res.kind || 'Resource')}</span>
       </div>
-      ${res.aids && res.aids.length ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">${renderAids(res.aids)}</div>` : ''}
       ${renderEvidenceList(res.evidence_ids)}
     </div>
   `).join('') : `<div class="empty" style="padding:12px;">${escapeHtml(t('impact_no_resources'))}</div>`;
@@ -1826,7 +2049,6 @@ function renderImpact(data) {
         <span><strong>⚖️ ${escapeHtml(rule.name)}</strong> <code>${escapeHtml(rule.id)}</code></span>
         <span class="badge badge-active">${escapeHtml(rule.kind || 'Rule')}</span>
       </div>
-      ${rule.aids && rule.aids.length ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">${renderAids(rule.aids)}</div>` : ''}
       ${renderEvidenceList(rule.evidence_ids)}
     </div>
   `).join('') : `<div class="empty" style="padding:12px;">${escapeHtml(t('impact_no_rules'))}</div>`;
@@ -1905,12 +2127,19 @@ function renderImpact(data) {
             <span style="color:var(--muted);">${escapeHtml(t('impact_covered_territories'))}:</span>
             ${(nl.territories || []).map(tName => `<span class="pred-pill" style="margin-right:4px;display:inline-block;margin-top:3px;">📍 ${escapeHtml(tName)}</span>`).join('')}
           </div>
-          ${nl.aids && nl.aids.length ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">${renderAids(nl.aids)}</div>` : ''}
           ${renderEvidenceList(nl.evidence_ids)}
         </div>
       `).join('')}
     </div>
   ` : `<div class="empty" style="padding:12px;">${escapeHtml(t('impact_no_notify'))}</div>`;
+
+  const summaryText = generateImpactSummary(data, currentLang);
+  const summaryBoxHtml = summaryText ? `
+    <div class="impact-summary-box">
+      <span class="impact-summary-icon">💡</span>
+      <span class="impact-summary-text">${escapeHtml(summaryText)}</span>
+    </div>
+  ` : '';
 
   // Assemble full card
   container.innerHTML = `
@@ -1924,6 +2153,8 @@ function renderImpact(data) {
           <span class="badge badge-active">${escapeHtml(t('impact_tickets_count', { n: data.tickets_count ?? 0 }))}</span>
         </div>
       </div>
+
+      ${summaryBoxHtml}
 
       <!-- Owners & Teams -->
       <div class="impact-block">
@@ -2147,13 +2378,80 @@ async function init() {
 
 let procedureList = [], sequenceData = null, sequenceState = 'loading', sequenceRequest = 0;
 const sequenceText = {
-  zh: {title:'流程顺序', select:'选择流程', loading:'加载中…', empty:'暂无带步骤的流程', error:'流程数据读取失败，请重新选择或刷新。', unknown:'顺序未知', cycle:'检测到环，无法排序', blocked:'被环阻塞', ordered:'步', step_n:'第 {n} 步', parallel:'可同时做', frontier:'按原文里的「先后顺序」关系排列；标「可同时做」的步骤有原文依据。', rules:'遵守规则', resources:'使用资源', performers:'执行人', required_fields:'必填字段', none:'未记录', evidence:'出处', noEvidence:'未记录原文片段', steps:'步'},
-  en: {title:'Procedure sequence', select:'Choose a procedure', loading:'Loading…', empty:'No procedures with steps', error:'Could not read procedures. Select again or refresh.', unknown:'Order unknown', cycle:'Cycle detected; cannot sort', blocked:'Blocked by cycle', ordered:'Step', step_n:'Step {n}', parallel:'Explicitly parallel', frontier:'Ordered by the "comes before" relations in the sources; steps marked parallel have source evidence.', rules:'Rules', resources:'Resources', performers:'Performers', required_fields:'Required fields', none:'Not recorded', evidence:'Evidence', noEvidence:'No source excerpt recorded', steps:'steps'}
+  zh: {
+    title: '流程顺序',
+    select: '选择流程',
+    loading: '加载中…',
+    empty: '暂无带步骤的流程',
+    error: '流程数据读取失败，请重新选择或刷新。',
+    unknown: '顺序未知',
+    cycle: '检测到环，无法排序',
+    blocked: '被环阻塞',
+    ordered: '步',
+    step_n: '第 {n} 步',
+    parallel: '可同时做',
+    desc: '新人照着做的步骤清单，按原文里的先后关系排序。',
+    frontier: '按原文里的「先后顺序」关系排列；标「可同时做」的步骤有原文依据。',
+    rules: '遵守规则',
+    resources: '使用资源',
+    performers: '执行人',
+    required_fields: '必填字段',
+    none: '未记录',
+    evidence: '出处',
+    noEvidence: '未记录原文片段',
+    steps: '步'
+  },
+  en: {
+    title: 'Procedure sequence',
+    select: 'Choose a procedure',
+    loading: 'Loading…',
+    empty: 'No procedures with steps',
+    error: 'Could not read procedures. Select again or refresh.',
+    unknown: 'Order unknown',
+    cycle: 'Cycle detected; cannot sort',
+    blocked: 'Blocked by cycle',
+    ordered: 'Step',
+    step_n: 'Step {n}',
+    parallel: 'Explicitly parallel',
+    desc: 'Step-by-step checklist for new on-call engineers, ordered by the precedence relations in the source documents.',
+    frontier: 'Ordered by the "comes before" relations in the sources; steps marked parallel have source evidence.',
+    rules: 'Rules',
+    resources: 'Resources',
+    performers: 'Performers',
+    required_fields: 'Required fields',
+    none: 'Not recorded',
+    evidence: 'Evidence',
+    noEvidence: 'No source excerpt recorded',
+    steps: 'steps'
+  }
 };
+
+const relNamesZh = {
+  HAS_STEP: '包含步骤',
+  PRECEDES: '在…之前',
+  PARALLEL_WITH: '同时进行',
+  GOVERNED_BY: '遵守规则',
+  USES_RESOURCE: '使用资源',
+  PERFORMED_BY: '执行人',
+  REQUIRES_FIELD: '必填字段'
+};
+const relNamesEn = {
+  HAS_STEP: 'Contains step',
+  PRECEDES: 'Precedes',
+  PARALLEL_WITH: 'Parallel with',
+  GOVERNED_BY: 'Governed by',
+  USES_RESOURCE: 'Uses resource',
+  PERFORMED_BY: 'Performed by',
+  REQUIRES_FIELD: 'Requires field'
+};
+
 function renderSequence() {
   const text = sequenceText[currentLang], esc = escapeHtml;
   document.getElementById('sequence-title').textContent = text.title;
   document.getElementById('sequence-label').textContent = text.select;
+  const sDesc = document.getElementById('sequence-desc');
+  if (sDesc) sDesc.textContent = text.desc;
+
   const select = document.getElementById('procedure-select'), selected = select.value;
   select.innerHTML = '<option value="">'+esc(text.select)+'</option>' + procedureList.map(p =>
     `<option value="${esc(p.id)}">${esc(p.name)} (${p.step_count} ${text.steps})</option>`).join('');
@@ -2162,13 +2460,37 @@ function renderSequence() {
   if (sequenceState !== 'ready') { container.textContent = text[sequenceState]; return; }
   if (!sequenceData) { container.textContent = procedureList.length ? text.select : text.empty; return; }
   const data = sequenceData, evidence = new Map((data.evidence || []).map(e => [e.id,e]));
+
   function sources(assertions) {
-    return assertions.map(a => `<details><summary>${esc(text.evidence)} · ${esc(a.aid || '—')} · ${esc(a.predicate || '')}</summary>${(a.evidence || []).map(id => {
-      const e = evidence.get(id);
-      return e ? `<div>${esc(e.source)}:${esc(e.locator)}</div><pre>${esc(e.excerpt)}</pre>` : `<div>${esc(id)} / ${esc(text.noEvidence)}</div>`;
-    }).join('') || esc(text.noEvidence)}</details>`).join('');
+    const relNames = currentLang === 'zh' ? relNamesZh : relNamesEn;
+    return (assertions || []).map(a => {
+      const evList = (a.evidence || []).map(id => evidence.get(id)).filter(Boolean);
+      const locStr = evList.length
+        ? evList.map(e => `${(e.source || '').split(/[/\\]/).pop()}:${e.locator}`).join(', ')
+        : (currentLang === 'zh' ? '出处记录' : 'Evidence');
+      const predKey = a.predicate || (a.kind === 'Person' ? 'PERFORMED_BY' : '');
+      const relStr = relNames[predKey] || (predKey ? esc(predKey) : '');
+      const summaryText = relStr ? `${locStr} · ${relStr}` : locStr;
+
+      const bodyHtml = evList.length ? evList.map(e => `
+        <div class="sequence-evidence-item">
+          <div class="evidence-meta"><strong>${esc(currentLang === 'zh' ? '出处:' : 'Source:')}</strong> <code>${esc(e.source)}:${esc(e.locator)}</code></div>
+          <pre class="evidence-excerpt">${esc(e.excerpt || text.noEvidence)}</pre>
+        </div>
+      `).join('') : `<div class="evidence-meta">${esc(text.noEvidence)}</div>`;
+
+      return `
+        <details class="sequence-evidence-toggle">
+          <summary class="sequence-evidence-summary">📜 ${esc(summaryText)}</summary>
+          <div class="sequence-evidence-body">
+            ${bodyHtml}
+          </div>
+        </details>
+      `;
+    }).join('');
   }
-  container.innerHTML = `<p>${esc(text.frontier)}</p>` +
+
+  container.innerHTML = `<p style="margin:4px 0 10px;color:var(--muted);font-size:12px;">${esc(text.frontier)}</p>` +
     (data.status === 'cycle' ? `<p class="badge badge-alert">${esc(text.cycle)}</p>` : '') +
     data.layers.map(l => `<div class="sequence-layer"><strong>${l.status === 'ordered' ? esc(text.step_n.replace('{n}', l.number)) : `${l.number} / ${esc(text[l.status])}`}</strong>
       ${(l.parallel_groups || []).map(g => `<p>${esc(text.parallel)}: ${g.map(esc).join(' + ')}</p>`).join('')}
@@ -2196,7 +2518,14 @@ async function initSequence() {
   try {
     const resp = await fetch('/api/procedures');
     if (!resp.ok) throw new Error('request failed');
-    procedureList = await resp.json(); sequenceState = 'ready'; renderSequence();
+    procedureList = await resp.json();
+    sequenceState = 'ready';
+    renderSequence();
+    const select = document.getElementById('procedure-select');
+    if (procedureList.length > 0 && (!select.value || select.value === '')) {
+      select.value = procedureList[0].id;
+      await loadSequence();
+    }
   } catch { sequenceState = 'error'; renderSequence(); }
 }
 window.addEventListener('DOMContentLoaded', initSequence);
