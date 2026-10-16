@@ -45,6 +45,12 @@ HARD RULES:
    different granularity are not conflicts. Use the returned conflict records
    only when they concern the question; incidental neighbour conflicts do not
    determine the answer status. Rank actual conflicts by authority.
+   A person's belief, proposal or routing assumption in the evidence that an
+   authoritative source or role record contradicts is also a conflict when the
+   question repeats or relies on it. Likewise when the question's own premise
+   (a claimed rule, deadline or person to contact) is contradicted by the
+   evidence, the status is conflict, not applicable: put both sides, each cited, under
+   ## Conflicts / Superseded and give the authoritative answer as Next step.
 7. A rule targeted by SUPERSEDES is superseded: give the current rule, then state the old one, the replacement, and the effective date.
 8. A rule with a condition (e.g. severity=P3) that the question does not supply is insufficient_context: answer with the conditional rule AND ask for the missing condition.
 9. If the requested facts are absent, answer not_found. List only what was
@@ -129,20 +135,70 @@ def _missing_identifiers(question: str, results: list[dict]) -> list[str]:
     return sorted({s for s in identifiers if s.casefold() not in visible})
 
 
-def _grounded_lines(answer: str, supported: set[tuple[str, str]]) -> bool:
-    facts = 0
-    for line in answer.splitlines():
-        line = line.strip()
+def _grounded_answer(answer: str, supported: set[tuple[str, str]]) -> tuple[str, int]:
+    """Keep only lines backed by a citation returned for this question.
+
+    Unsupported citations are stripped; a line left without any supported
+    citation is dropped instead of discarding the whole answer.
+    """
+    kept, facts = [], 0
+    for raw in answer.splitlines():
+        line = raw.strip()
         if not line or line.startswith("#") or line in ("---", "***"):
+            kept.append(raw)
             continue
-        citations = re.findall(r"\[([^\]\n]+)\]", line)
-        pairs = [parse_citation(c) for c in citations if "corpus/" in c or "->" in c or "\u2192" in c]
-        if any(pair not in supported for pair in pairs):
-            return False
-        if not pairs and not line.endswith(("?", "\uff1f")):
-            return False
-        facts += bool(pairs)
-    return bool(facts)
+        good = 0
+        def check(match):
+            nonlocal good
+            c = match[1]
+            if not ("corpus/" in c or "->" in c or "\u2192" in c):
+                return match[0]
+            if parse_citation(c) in supported:
+                good += 1
+                return match[0]
+            return ""
+        line = re.sub(r"\s*\[([^\]\n]+)\]", check, raw)
+        if good or line.strip().endswith(("?", "\uff1f")):
+            kept.append(line)
+            facts += bool(good)
+    text = re.sub(r"(?m)^##[^\n]*(?:\n|\Z)(?=\s*(?:##|\Z))", "", "\n".join(kept))
+    return text.strip("\n"), facts
+
+
+_STOP = {"the", "a", "an", "and", "or", "of", "to", "for", "in", "on", "my", "our",
+         "what", "where", "when", "who", "how", "should", "is", "it", "i", "we", "do"}
+
+
+def _words(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z0-9]+", text.casefold()) if w not in _STOP and len(w) > 2}
+
+
+def _supersession_lines(question: str, results: list[dict],
+                        supported: set[tuple[str, str]]) -> list[str]:
+    """Graph-recorded supersessions of rules the question is about."""
+    lines, asked = [], _words(question)
+    for r in results:
+        entity = r.get("entity") or {}
+        if not r.get("superseded") or len(_words(entity.get("name", "")) & asked) < 2:
+            continue
+        for s in r["superseded"]:
+            locs = sorted(loc for aid, loc in supported if aid == s.get("aid"))
+            if locs:
+                lines.append(f"{entity['name']} is superseded by {s['superseded_by']}"
+                             + (f", effective {s['effective']}" if s.get("effective") else "")
+                             + f" [{s['aid']} → {locs[0]}].")
+    return lines
+
+
+def _cited_conflict(answer: str) -> bool:
+    """A model-reported conflict counts only when its Conflicts section cites
+    two or more distinct source lines (the contradicting statements)."""
+    section = re.search(r"(?ms)^##\s*Conflicts[^\n]*\n(.*?)(?=^##|\Z)", answer)
+    if not section:
+        return False
+    locators = {parse_citation(c)[1] for c in re.findall(r"\[([^\]\n]+)\]", section[1])
+                if parse_citation(c)}
+    return len(locators) >= 2
 
 
 def _not_found_answer(question: str, log: list[dict], missing: list[str]) -> str:
@@ -271,7 +327,14 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
     supported = citation_pairs(tool_results)
     answer = normalize_citations(answer, supported)
     missing = _missing_identifiers(question, tool_results)
-    if missing or state == "not_found" or not _grounded_lines(answer, supported):
+    answer, facts = _grounded_answer(answer, supported)
+    if proposed and proposed[1] == "conflict" and state != "conflict" and _cited_conflict(answer):
+        state = "conflict"
+    superseded = _supersession_lines(question, tool_results, supported)
+    if superseded and state in ("applicable", "insufficient_context"):
+        state = "superseded"
+        answer = answer.rstrip("\n") + "\n\n## Conflicts / Superseded\n" + "\n".join(superseded)
+    if missing or state == "not_found" or not facts:
         state = "not_found"
         answer = _not_found_answer(question, log, missing)
     answer = f"Status: {state}\n" + answer

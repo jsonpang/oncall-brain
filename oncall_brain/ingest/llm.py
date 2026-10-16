@@ -299,7 +299,9 @@ def quote_matches(a: dict) -> bool:
         return True  # nothing quoted; the line number alone is the evidence
     ls = EV.lines(a["source"])
     i = int(a["line"])
-    norm = re.sub(r"\s+", " ", q.strip().strip('"').strip("'"))
+    # Slices number each line ("[28] ..."); models often quote that prefix too.
+    q = re.sub(r"^\[\d+\]\s*", "", q.strip().strip('"').strip("'"))
+    norm = re.sub(r"\s+", " ", q)
     window = " ".join(ls[max(0, i - 2):i + 1])
     return norm[: min(60, len(norm))] in re.sub(r"\s+", " ", window)
 

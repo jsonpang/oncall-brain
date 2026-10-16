@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import re
 import sys
 from pathlib import Path
 
@@ -49,7 +50,9 @@ def run_llm_extraction(verbose=False):
                     "state": "candidate",
                     "props": {k: v for k, v in (a.get("props") or {}).items()
                               if v is not None},
-                    "evidence_text": a.get("evidence_text") or "",
+                    # Drop the slice's "[28] " line number if the model quoted it.
+                    "evidence_text": re.sub(r"^\s*\[\d+\]\s*", "",
+                                            a.get("evidence_text") or ""),
                 }
                 reason = None
                 if not edge["subject"] or not edge["object"]:

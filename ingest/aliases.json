@@ -41,10 +41,12 @@
   "Procedure:Release_Acceptance_Sop": "Procedure:Release_Acceptance_SOP",
   "Resource:Unified Gateway SSO": "Unified Gateway SSO",
   "Role:Tier_2_Module_Lead": "Role:Tier 2 Module Lead",
+  "Resource:Unified Gateway Portal": "Unified Gateway Portal",
   "Resource:Unified Gateway & Portal": "Unified Gateway Portal",
   "Resource:Non-Ticket Issue Register": "Non-Ticket Issue Register",
+  "Resource:Non_Ticket_Issue_Register": "Non-Ticket Issue Register",
   "Role:Field_Specialist": "Role:Field Specialist",
+  "Resource:Regional Territory": "Resource:Regional_Territory",
   "Resource:Reporter_Name": "Resource:Reporter Name",
-  "Resource:Regional_Territory": "Resource:Regional Territory",
   "Resource:Resolution_Summary": "Resource:Resolution Summary"
 }
