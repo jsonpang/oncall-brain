@@ -14,6 +14,7 @@
   #proof-list{margin:6px 0 14px}#proof-list h4{margin:4px 0 6px;font-size:13px;color:var(--mint)}.proof-row{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;margin:4px 0;padding:7px 10px;background:#13261f;border-color:#2c5a48;font-size:13px}.proof-cite{color:var(--mint);font-size:11px;white-space:nowrap}.trace-why,.trace-result{margin:6px 0;font-size:12px;line-height:1.6;color:var(--muted)}.trace-result{color:var(--text)}.trace-why b,.trace-result b{color:var(--text)}.trace-card details summary{cursor:pointer;font-size:11px;color:var(--blue);margin-top:6px}.trace-howto{font-size:12px;line-height:1.65;color:var(--muted);border-left:2px solid var(--blue);padding:4px 10px;margin:0 0 4px}
   .examples-box{margin:12px 0}.examples-box summary{cursor:pointer;font-size:12px;color:var(--blue);margin-bottom:8px}.examples{display:block;margin:0}.ex-group{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 8px}.ex-label{font-size:11px;color:var(--muted);width:100%;margin-top:2px}.ex-group button{font-size:12px;padding:5px 9px}
   .proof-item{margin:6px 0 10px}.proof-sentence{margin:0 0 4px;font-size:13px;color:var(--text);line-height:1.55}.proof-textonly{margin:2px 0 0;font-size:12px;color:var(--amber);padding-left:10px;border-left:2px solid var(--amber)}
+  .gctl{display:flex;gap:6px;flex-wrap:wrap}.gctl button{padding:6px 10px}.gnav{margin:-4px 0 8px;font-size:11px}.legend .lg-title{color:var(--text);font-weight:600}.legend span{display:inline-flex;align-items:center;gap:5px}.legend-kinds{margin-bottom:4px}.trace-use{margin:6px 0;font-size:12px;color:var(--text)}.trace-use b{display:block;margin-bottom:4px}.trace-card.unused{opacity:.55}.trace-card.unused .trace-use{color:var(--muted)}
   </style>
 </head>
 <body>
@@ -26,9 +27,10 @@
     <article id="answer" aria-live="polite"><div class="empty" data-i18n="answer_empty"></div></article>
   </section>
   <section aria-label="Knowledge graph">
-    <div class="graph-head"><h2 data-i18n="h_graph"></h2><button id="fit" type="button" data-i18n="fit"></button></div>
+    <div class="graph-head"><h2 data-i18n="h_graph"></h2><div class="gctl"><button id="zoom-in" type="button" title="+">＋</button><button id="zoom-out" type="button" title="-">－</button><button id="fit" type="button" data-i18n="fit"></button><button id="fit-proof" type="button" data-i18n="fit_proof"></button></div></div><p class="hint gnav" data-i18n="gnav"></p>
     <div id="graph" role="img"></div>
-    <div class="legend"><span><i class="cited-dot"></i><span data-i18n="lg_cited"></span></span><span><i class="root-dot"></i><span data-i18n="lg_root"></span></span><span><i class="node-dot"></i><span data-i18n="lg_entity"></span></span><span><i></i><span data-i18n="lg_rule"></span></span><span><i class="chat-dot"></i><span data-i18n="lg_chat"></span></span></div>
+    <div class="legend legend-kinds"><span class="lg-title" data-i18n="lg_nodes"></span><span><svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="#bdadff"/></svg><span data-i18n="k_person"></span></span><span><svg width="14" height="14"><polygon points="7,1 13,4.5 13,9.5 7,13 1,9.5 1,4.5" fill="#8abaff"/></svg><span data-i18n="k_module"></span></span><span><svg width="14" height="14"><rect x="1" y="1" width="12" height="12" rx="3" fill="#79dfb2"/></svg><span data-i18n="k_rule"></span></span><span><svg width="14" height="14"><polygon points="7,1 13,7 7,13 1,7" fill="#6fd3e0"/></svg><span data-i18n="k_resource"></span></span><span><svg width="16" height="12"><rect x="1" y="2" width="14" height="8" fill="#9aa9bd"/></svg><span data-i18n="k_procedure"></span></span><span><svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="none" stroke="#ffd27a" stroke-width="2.5"/></svg><span data-i18n="lg_root"></span></span></div>
+    <div class="legend"><span class="lg-title" data-i18n="lg_edges"></span><span><i class="cited-dot"></i><span data-i18n="lg_cited"></span></span><span><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#4b6f68" stroke-width="2"/></svg><span data-i18n="lg_rule"></span></span><span><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#f5c56c" stroke-width="2" stroke-dasharray="4 3"/></svg><span data-i18n="lg_chat"></span></span></div>
     <p class="hint" id="graph-summary" data-i18n="graph_hint"></p><div id="proof-list"></div>
     <form id="search-form" class="searchbar"><input id="search" aria-label="Search graph" data-i18n-ph="search_ph" maxlength="500" required><button type="submit" data-i18n="search"></button></form><div id="search-results"></div><div id="node-info"></div>
   </section>
@@ -46,7 +48,7 @@ const I18N = {
     all_evidence:'全部返回证据', budget:'工具预算用尽（{r}），请留意回答中的缺项。', no_trace:'没有返回查询记录。', nodes_summary:'{n} 个节点 · {e} 条关系 · 点击节点展开', truncated:'关系查询已截断为 50 条路径。',
     cdn_fail:'图组件加载失败，请检查网络后刷新；回答和引用仍可使用。', busy_deep:'深度模式：模型正在一步步决定查询，约 1 分钟…', busy_fast:'正在查图，然后组装回答…',
     done:'完成 · {mode} · {steps} 步 · {ev} 条证据', timing:' · 查图+决策 {g} 秒，组装 {c} 秒，共 {t} 秒', mode_fast:'快速模式', mode_deep:'深度模式', not_found_entity:'not_found · 没找到实体', onto_title:'本体 / 受控工具契约',
-    status_src:'状态来源：{s} · 证据：本题查询结果', assertions:'条关系', lg_cited:'答案引用的关系（证明路径）', conclusion:'结论', examples:'参考提问（17 题，点一下直接提问）', proves:'结论的每一句，依据是什么', by_graph:'图上的关系', by_text:'只有原文支撑，图中没有对应关系', text_line:'原文', raw:'原始参数与查询模板', trace_howto:'怎么用这份记录：答案看起来不对时，从上往下看是哪一步出了问题。候选里没有正确的实体，是搜索没搜到；候选里有但没被选中，是 Jev 判断错了；读到了但结论里没写，是大模型漏写了。每一步都能和左边结论里的出处对上。', why:'为什么', result:'结果', sec_next:'下一步怎么做', sec_basis:'依据', sec_practice:'实际常见做法', sec_conflict:'冲突 / 已替代', sec_gaps:'资料缺口', sec_searched:'查过什么', sec_missing:'缺少什么', status_label:'答案状态', glossary:'名词解释（看不懂点这里）', st_applicable:'可直接照做', st_superseded:'规则已被新通知替代', st_conflict:'说法冲突 / 问题前提不成立', st_insufficient_context:'缺条件，需要你补充', st_not_found:'资料里没有答案', st_stale:'信息可能过期', proof:'亮起的 {e} 条边就是答案引用的关系，其余为本题读过但未引用的上下文。', no_proof:'这次答案没有引用图上的关系，只引用了原文行。'},
+    status_src:'状态来源：{s} · 证据：本题查询结果', assertions:'条关系', lg_cited:'答案引用的关系（证明路径）', conclusion:'结论', lg_nodes:'点 = 实体：', lg_edges:'线 = 关系（线上的字是关系名）：', k_person:'人 / 团队 / 角色', k_module:'模块', k_rule:'规则 / 通知', k_resource:'文档 / 频道 / 表单', k_procedure:'流程 / 步骤 / 工单', fit_proof:'回到证明路径', gnav:'拖动可平移；按住 Ctrl 滚动滚轮缩放（直接滚轮是滚动页面）；悬停节点看名称和关系，点击节点展开邻居。', read_why_jev:'Jev 判断它和问题相关（打分 {p}），所以读它。', read_why_hop:'它是上一步实体的邻居，Jev 判断答案可能在它身上（打分 {p}）。', read_why_model:'大模型自己决定读它。', read_got:'读到 {n} 条关系。', read_used:'对结论的贡献：结论引用了它的 {n} 条关系', read_unused:'对结论的贡献：没有用上（读了但结论没引用，图上已调暗）。', examples:'参考提问（17 题，点一下直接提问）', proves:'结论的每一句，依据是什么', by_graph:'图上的关系', by_text:'只有原文支撑，图中没有对应关系', text_line:'原文', raw:'原始参数与查询模板', trace_howto:'怎么用这份记录：答案看起来不对时，从上往下看是哪一步出了问题。候选里没有正确的实体，是搜索没搜到；候选里有但没被选中，是 Jev 判断错了；读到了但结论里没写，是大模型漏写了。每一步都能和左边结论里的出处对上。', why:'为什么', result:'结果', sec_next:'下一步怎么做', sec_basis:'依据', sec_practice:'实际常见做法', sec_conflict:'冲突 / 已替代', sec_gaps:'资料缺口', sec_searched:'查过什么', sec_missing:'缺少什么', status_label:'答案状态', glossary:'名词解释（看不懂点这里）', st_applicable:'可直接照做', st_superseded:'规则已被新通知替代', st_conflict:'说法冲突 / 问题前提不成立', st_insufficient_context:'缺条件，需要你补充', st_not_found:'资料里没有答案', st_stale:'信息可能过期', proof:'亮起的 {e} 条边就是答案引用的关系，其余为本题读过但未引用的上下文。', no_proof:'这次答案没有引用图上的关系，只引用了原文行。'},
   en: {tagline:'Graph Hacks / Evidence before action', live:'● READ-ONLY KNOWLEDGE GRAPH', h_ask:'01 / Ask your operations brain', ask_label:'Ask a question', ask_ph:'Where is the knowledge base? Who handles this ticket? Which rule is still in force?',
     ex_q1:'Q1 · Knowledge base owner', ex_q4:'Q4 · Channels to join', ex_q15:'Q15 · Who fixes the queue', ask_btn:'Ask Brain ↗', deep:'Deep mode: the model picks every query itself (slower, ~1 min)', cited:'Every claim is cited · click a citation to read the source',
     answer_empty:'Start with a real question. The answer, its evidence and the subgraph it came from appear here.', h_graph:'02 / Follow the evidence', fit:'Fit graph', lg_root:'Read for this answer', lg_entity:'Related entity', lg_rule:'Formal rule', lg_chat:'Chat / observation / practice',
@@ -55,7 +57,7 @@ const I18N = {
     all_evidence:'All returned evidence', budget:'Tool budget used up ({r}): check the answer for gaps.', no_trace:'No query trace returned.', nodes_summary:'{n} nodes · {e} assertions · click a node to expand', truncated:'Relation query truncated to 50 paths.',
     cdn_fail:'Graph component failed to load. Refresh after checking the network; answers and citations still work.', busy_deep:'Deep mode: the model is choosing queries step by step, about a minute...', busy_fast:'Querying the graph, then composing the answer...',
     done:'Done · {mode} · {steps} steps · {ev} evidence lines', timing:' · graph+decisions {g}s, compose {c}s, total {t}s', mode_fast:'fast mode', mode_deep:'deep mode', not_found_entity:'not_found · no matching entity', onto_title:'Ontology / controlled tool contract',
-    status_src:"Status source: {s} · Evidence: this question's own results", assertions:'assertions', lg_cited:'Relation cited by the answer (proof path)', conclusion:'Answer', examples:'Example questions (17, click to ask)', proves:'What backs each sentence of the answer', by_graph:'graph relation', by_text:'source text only, no graph relation', text_line:'source', raw:'Raw arguments and query templates', trace_howto:'How to use this trace: when an answer looks wrong, read top-down to find the step that failed. The right entity is missing from the candidates: search missed it. It is a candidate but not chosen: Jev misjudged. It was read but the answer leaves it out: the LLM dropped it. Every step lines up with the citations in the answer.', why:'Why', result:'Result', sec_next:'Next step', sec_basis:'Basis', sec_practice:'Actual common practice', sec_conflict:'Conflicts / Superseded', sec_gaps:'Gaps', sec_searched:'Searched', sec_missing:'Missing', status_label:'Status', glossary:'Glossary', st_applicable:'safe to act on', st_superseded:'rule replaced by a newer notice', st_conflict:'sources disagree / premise is wrong', st_insufficient_context:'a condition is missing', st_not_found:'no answer in the material', st_stale:'may be out of date', proof:'The {e} lit edges are the relations the answer cites; the rest is context it read but did not cite.', no_proof:'This answer cites source lines only, no graph relation.'}
+    status_src:"Status source: {s} · Evidence: this question's own results", assertions:'assertions', lg_cited:'Relation cited by the answer (proof path)', conclusion:'Answer', lg_nodes:'Dots = entities:', lg_edges:'Lines = relations (label = relation name):', k_person:'person / team / role', k_module:'module', k_rule:'rule / notice', k_resource:'doc / channel / form', k_procedure:'procedure / step / ticket', fit_proof:'Proof path', gnav:'Drag to pan; Ctrl + wheel to zoom (plain wheel scrolls the page); hover a node for names and relations, click to expand.', read_why_jev:'Jev judged it relevant to the question (score {p}).', read_why_hop:'A neighbour of the previous entities; Jev judged the answer may sit here (score {p}).', read_why_model:'The model chose to read it.', read_got:'{n} relations read.', read_used:'Contribution: the answer cites {n} of its relations', read_unused:'Contribution: none (read but not cited; dimmed on the graph).', examples:'Example questions (17, click to ask)', proves:'What backs each sentence of the answer', by_graph:'graph relation', by_text:'source text only, no graph relation', text_line:'source', raw:'Raw arguments and query templates', trace_howto:'How to use this trace: when an answer looks wrong, read top-down to find the step that failed. The right entity is missing from the candidates: search missed it. It is a candidate but not chosen: Jev misjudged. It was read but the answer leaves it out: the LLM dropped it. Every step lines up with the citations in the answer.', why:'Why', result:'Result', sec_next:'Next step', sec_basis:'Basis', sec_practice:'Actual common practice', sec_conflict:'Conflicts / Superseded', sec_gaps:'Gaps', sec_searched:'Searched', sec_missing:'Missing', status_label:'Status', glossary:'Glossary', st_applicable:'safe to act on', st_superseded:'rule replaced by a newer notice', st_conflict:'sources disagree / premise is wrong', st_insufficient_context:'a condition is missing', st_not_found:'no answer in the material', st_stale:'may be out of date', proof:'The {e} lit edges are the relations the answer cites; the rest is context it read but did not cite.', no_proof:'This answer cites source lines only, no graph relation.'}
 };
 let lang = 'zh', lastData = null;
 try { lang = localStorage.getItem('oncall-lang') || 'zh'; } catch(e) {}
@@ -177,7 +179,7 @@ function renderExamples() {
 const $ = id => document.getElementById(id);
 const el = (tag, text, cls) => { const e = document.createElement(tag); if(text !== undefined) e.textContent = text; if(cls) e.className = cls; return e; };
 const states = new Set(['applicable','conflict','superseded','insufficient_context','not_found','stale']);
-let conclusionLines = [], citeNumbers = new Map(), evidence = [], citations = [], cy = null, busy = false, graphRevision = 0;
+let pickedBy = {}, conclusionLines = [], citeNumbers = new Map(), evidence = [], citations = [], cy = null, busy = false, graphRevision = 0;
 async function api(path, options) {
   const response = await fetch(path, options);
   const data = await response.json();
@@ -238,22 +240,51 @@ function renderAnswer(data) {
   if(data.stop_reason && data.stop_reason!=='completed') $('answer').append(el('p',t('budget',{r:data.stop_reason}),'hint'));
   for(const warning of data.warnings || []) $('answer').append(el('p',warning,'error'));
   $('trace').replaceChildren(el('p',t('trace_howto'),'trace-howto'));
+  pickedBy={};
+  for(const call of data.trace || []) {
+    if(!String(call.tool).startsWith('decide')) continue;
+    for(const c of call.args?.chosen || []) { const m=String(c).match(/^(.*) \(([\d.]+)\)$/); if(m) pickedBy[m[1]]={p:m[2],hop:String(call.tool).includes('hop')}; }
+  }
   for(const [i,call] of (data.trace || []).entries()) {
     const st=STEP[lang][call.tool] || [call.tool, '', () => ''];
     const card=el('div',undefined,'trace-card');
+    if(call.tool==='read_knowledge') { card.dataset.entity=call.args?.id || ''; card.dataset.picked=pickedBy[call.args?.id] ? JSON.stringify(pickedBy[call.args?.id]) : ''; }
     card.append(el('div',`${i+1}. ${st[0]}`,'trace-title'));
-    if(st[1]) { const w=el('p',undefined,'trace-why'); w.append(el('b',t('why')+'：'),document.createTextNode(st[1])); card.append(w); }
+    if(call.tool==='read_knowledge') {
+      const pk=pickedBy[call.args?.id];
+      const why=pk ? t(pk.hop?'read_why_hop':'read_why_jev',{p:pk.p}) : t('read_why_model');
+      const w=el('p',undefined,'trace-why'); w.append(el('b',t('why')+'：'),document.createTextNode(why)); card.append(w);
+    } else if(st[1]) { const w=el('p',undefined,'trace-why'); w.append(el('b',t('why')+'：'),document.createTextNode(st[1])); card.append(w); }
     const res=st[2](call.summary || {}, call.args || {});
     if(res) { const r=el('p',undefined,'trace-result'); r.append(el('b',t('result')+'：'),document.createTextNode(res)); card.append(r); }
     const raw=el('details'); raw.append(el('summary',t('raw')),el('pre',JSON.stringify(call.args || {},null,2)),el('div',(call.template || []).join(' · '),'templates'));
     card.append(raw); $('trace').append(card);
   }
   if(!data.trace?.length) $('trace').append(el('p',t('no_trace'),'hint'));
-  graphRevision++; if(cy) { cy.elements().remove(); mergeGraph(data.graph || {nodes:[],edges:[]}); markProof(); }
+  graphRevision++; if(cy) { cy.elements().remove(); mergeGraph(data.graph || {nodes:[],edges:[]}); markProof(); annotateReads(); }
 }
 function citedEdges(aid) {
   // Graph edges whose assertion id appears in the answer's citations.
   return cy.edges().filter(e => aid ? e.data('aid') === aid : citations.some(c => c.aid === e.data('aid')));
+}
+function annotateReads() {
+  const lit = citedEdges();
+  const name = id => { const n = cy.getElementById(id); return (n.data('label') || id).replace(/^\w+:/, '').replace(/_/g, ' '); };
+  const say = e => (REL[lang][e.data('predicate')] || ('{s} ' + e.data('predicate') + ' {t}')).replace('{s}', name(e.data('source'))).replace('{t}', name(e.data('target')));
+  document.querySelectorAll('#trace .trace-card[data-entity]').forEach(card => {
+    const id = card.dataset.entity;
+    card.querySelector('.trace-use')?.remove();
+    const mine = lit.filter(e => e.data('source') === id || e.data('target') === id);
+    const use = el('div', undefined, 'trace-use');
+    if (mine.length) {
+      card.classList.remove('unused');
+      use.append(el('b', t('read_used', {n: mine.length}) + '：'));
+      const seen = new Set();
+      mine.forEach(e => { const tx = say(e); if (seen.has(tx)) return; seen.add(tx);
+        const b = el('button', tx, 'proof-row'); b.type = 'button'; b.onclick = () => focusCitation(e.data('aid')); use.append(b); });
+    } else { card.classList.add('unused'); use.append(el('span', t('read_unused'))); }
+    card.querySelector('details').before(use);
+  });
 }
 function markProof() {
   if(!cy) return;
@@ -333,23 +364,38 @@ async function expandNode(id) {
   } catch(error) { activity(error.message,true); }
 }
 if(window.cytoscape) {
-  cy=cytoscape({container:$('graph'),elements:[],style:[
+  cy=cytoscape({container:$('graph'),elements:[],userZoomingEnabled:false,style:[
     {selector:'node',style:{label:'data(label)','background-color':'#8abaff',color:'#e5edf7','font-size':10,'text-wrap':'wrap','text-max-width':110,'text-valign':'bottom','text-margin-y':6,width:18,height:18,'text-opacity':0,'text-background-color':'#111820','text-background-opacity':.8,'text-background-padding':2}},
     {selector:'node[?root]',style:{width:34,height:34,'font-size':12,'font-weight':650,'text-opacity':1,'border-width':3,'border-color':'#ffd27a','z-index':10}},
     {selector:'node.hover,node:selected,node.near',style:{'text-opacity':1,'z-index':20}},
-    {selector:'node[kind = "Person"]',style:{'background-color':'#bdadff'}},
-    {selector:'node[kind = "Rule"]',style:{'background-color':'#79dfb2',shape:'round-rectangle'}},
+    {selector:'node[kind = "Person"],node[kind = "Team"],node[kind = "Vendor"],node[kind = "Role"]',style:{'background-color':'#bdadff',shape:'ellipse'}},
+    {selector:'node[kind = "Module"]',style:{'background-color':'#8abaff',shape:'hexagon'}},
+    {selector:'node[kind = "Rule"],node[kind = "Notice"]',style:{'background-color':'#79dfb2',shape:'round-rectangle'}},
+    {selector:'node[kind = "Resource"]',style:{'background-color':'#6fd3e0',shape:'diamond'}},
+    {selector:'node[kind = "Procedure"],node[kind = "WorkStage"],node[kind = "Stage"],node[kind = "Ticket"],node[kind = "Territory"]',style:{'background-color':'#9aa9bd',shape:'rectangle'}},
     {selector:'node[superseded = true]',style:{opacity:.5}},
     {selector:'edge',style:{width:1.2,'line-color':'#4b6f68','target-arrow-color':'#4b6f68','target-arrow-shape':'triangle','arrow-scale':.8,'curve-style':'bezier',label:'data(label)','font-size':8,color:'#a2afbf','text-opacity':0,'text-rotation':'autorotate','text-background-color':'#111820','text-background-opacity':.85,'text-background-padding':2}},
     {selector:'edge.near',style:{'text-opacity':1,width:2,'line-color':'#79dfb2','target-arrow-color':'#79dfb2','z-index':20}},
+    {selector:'edge[authority = "observation"],edge[authority = "practice"]',style:{'line-color':'#f5c56c','target-arrow-color':'#f5c56c','line-style':'dashed'}},
     {selector:'.dim',style:{opacity:.22}},
     {selector:'edge.cited',style:{width:3.5,'line-color':'#79dfb2','target-arrow-color':'#79dfb2','line-style':'solid','text-opacity':1,'font-size':9,color:'#e5edf7','z-index':30,opacity:1}},
     {selector:'node.cited',style:{'text-opacity':1,'border-width':3,'border-color':'#79dfb2','z-index':30,opacity:1}},
     {selector:'.focus',style:{'line-color':'#ffffff','target-arrow-color':'#ffffff','border-color':'#ffffff',width:5}},
-    {selector:'edge[authority = "observation"],edge[authority = "practice"]',style:{'line-color':'#f5c56c','target-arrow-color':'#f5c56c','line-style':'dashed'}},
     {selector:'edge[directed = false]',style:{'target-arrow-shape':'none'}},
     {selector:':selected',style:{'border-width':3,'border-color':'#fff'}}]});
   cy.on('tap','node',event=>expandNode(event.target.id()));
+  // Plain wheel scrolls the page; Ctrl+wheel zooms around the pointer.
+  $('graph').addEventListener('wheel', ev => {
+    if (!ev.ctrlKey) return;
+    ev.preventDefault();
+    const b = $('graph').getBoundingClientRect();
+    const z = Math.min(3, Math.max(0.15, cy.zoom() * (ev.deltaY < 0 ? 1.15 : 1 / 1.15)));
+    cy.zoom({level: z, renderedPosition: {x: ev.clientX - b.left, y: ev.clientY - b.top}});
+  }, {passive: false});
+  const zoomBy = f => cy.zoom({level: Math.min(3, Math.max(0.15, cy.zoom() * f)), renderedPosition: {x: $('graph').clientWidth / 2, y: $('graph').clientHeight / 2}});
+  $('zoom-in').onclick = () => zoomBy(1.25);
+  $('zoom-out').onclick = () => zoomBy(1 / 1.25);
+  $('fit-proof').onclick = () => { const c = cy.$('.cited'); if (c.length) { cy.animate({fit: {eles: c, padding: 60}, duration: 300}); } };
   // Names show for nodes this answer read; hovering reveals a node, its neighbours and their relations.
   cy.on('mouseover','node',e=>{e.target.addClass('hover');e.target.neighborhood().addClass('near');});
   cy.on('mouseout','node',e=>{e.target.removeClass('hover');e.target.neighborhood().removeClass('near');});
