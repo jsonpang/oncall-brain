@@ -621,6 +621,114 @@
       white-space: nowrap;
     }
 
+    /* Section 6: Impact Analysis */
+    .impact-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+    }
+    .impact-controls select {
+      background: var(--btn-bg);
+      border: 1px solid var(--line);
+      color: var(--text);
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      max-width: 100%;
+    }
+    .impact-controls select:focus {
+      outline: 2px solid var(--mint);
+    }
+    .impact-result-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .impact-meta-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 12px;
+    }
+    .impact-block {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .impact-block-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .source-note-pill {
+      font-size: 11px;
+      background: var(--warn-bg);
+      border: 1px solid var(--warn-border);
+      color: var(--amber);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .evidence-toggle {
+      margin-top: 5px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--code-bg);
+      padding: 5px 8px;
+      font-size: 12px;
+    }
+    .evidence-summary {
+      cursor: pointer;
+      color: var(--muted);
+      user-select: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .evidence-summary:hover {
+      color: var(--text);
+    }
+    .evidence-body {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed var(--line);
+    }
+    .evidence-meta {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .evidence-excerpt {
+      font-size: 11px;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 6px 8px;
+      color: var(--text);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-all;
+      margin: 0;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       header { padding: 14px 16px; }
@@ -631,6 +739,8 @@
       .cf-values { flex-direction: column; align-items: stretch; }
       .cf-vs { text-align: center; }
       .ss-card { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .impact-controls { flex-direction: column; align-items: stretch; }
+      .impact-meta-header { flex-direction: column; align-items: flex-start; }
     }
 
     #procedure-select { width:100%; min-width:0; background:var(--card-bg); color:var(--text); border:1px solid var(--line); padding:10px; border-radius:7px; }
@@ -760,6 +870,27 @@
       <p class="risk-desc" id="why-ss">旧规则已被新规则废止，若仍残留在认知中，容易误导值班人员执行已作废的旧流程。</p>
     </div>
     <div id="content-ss"></div>
+  </section>
+
+  <!-- 6. 影响分析 (module impact) -->
+  <section class="risk-section" id="sec-impact">
+    <div class="risk-header">
+      <div class="risk-title-line">
+        <h2>
+          <span id="title-impact">6. 影响分析</span>
+          <span class="badge badge-count" id="badge-impact">0</span>
+        </h2>
+      </div>
+      <p class="risk-desc" id="why-impact">分析某个模块出问题时会波及哪些人、团队、资源及区域，以及出问题时应通知谁。</p>
+    </div>
+    <div class="impact-controls">
+      <label for="impact-mod-select" id="lbl-impact-select">选择分析模块：</label>
+      <select id="impact-mod-select">
+        <option value="">-- 请选择模块 --</option>
+      </select>
+      <button type="button" id="btn-refresh-impact">分析</button>
+    </div>
+    <div id="content-impact"></div>
   </section>
 
   <section class="risk-section" aria-labelledby="sequence-title">
@@ -969,6 +1100,36 @@ const I18N = {
     badge_active: '新生效',
     lbl_effective: '替代生效日: {d}',
 
+    sec6_title: '6. 影响分析',
+    sec6_why: '分析某个模块出问题时会波及哪些人、团队、资源及区域，以及出问题时应通知谁。',
+    lbl_select_mod: '选择分析模块：',
+    btn_analyze: '分析',
+    select_placeholder: '-- 请选择模块 --',
+    impact_loading: '正在分析模块影响...',
+    impact_select_prompt: '请在上方下拉菜单中选择一个模块进行影响分析。',
+    impact_not_found: '未找到该模块的影响分析数据。',
+    impact_owners_teams: '负责人与归属团队',
+    impact_resources: '关联知识库与资源',
+    impact_rules: '适用规则',
+    impact_tickets_handlers: '历史工单与实际处理人',
+    impact_territories: '受影响区域',
+    impact_tenants: '受影响租户',
+    impact_notify_leads: '出问题时该通知谁（区域负责人）',
+    impact_source_note: '来自工单原文，不是图关系',
+    impact_no_owners: '无登记负责人',
+    impact_no_resources: '无关联资源',
+    impact_no_rules: '无适用规则',
+    impact_no_handlers: '无工单处理记录',
+    impact_no_territories: '无区域影响记录',
+    impact_no_tenants: '无租户影响记录',
+    impact_no_notify: '无匹配的区域负责人',
+    impact_teams_label: '归属团队',
+    impact_tickets_count: '历史工单：{n} 单',
+    impact_handled_tickets: '{n} 单',
+    impact_territory_tickets: '{n} 单',
+    impact_covered_territories: '负责区域',
+    no_excerpt: '无可用原文片段',
+
     empty: '未发现',
     fetch_failed: '无法连接 /api/health（后端可能尚在开发中）。',
     switch_to_mock: '切换到 Mock 数据预览'
@@ -1014,6 +1175,36 @@ const I18N = {
     badge_void: 'Void',
     badge_active: 'Active',
     lbl_effective: 'Effective: {d}',
+
+    sec6_title: '6. Impact Analysis',
+    sec6_why: 'Analyze who and what is affected when a module fails: owners, teams, resources, rules, affected territories/tenants, and who to notify.',
+    lbl_select_mod: 'Select Module:',
+    btn_analyze: 'Analyze',
+    select_placeholder: '-- Select a module --',
+    impact_loading: 'Analyzing module impact...',
+    impact_select_prompt: 'Please select a module from the dropdown above to analyze its impact.',
+    impact_not_found: 'Module impact data not found.',
+    impact_owners_teams: 'Owners & Teams',
+    impact_resources: 'Resources & Knowledge Hub',
+    impact_rules: 'Applicable Rules',
+    impact_tickets_handlers: 'Historical Tickets & Handlers',
+    impact_territories: 'Affected Territories',
+    impact_tenants: 'Affected Tenants',
+    impact_notify_leads: 'Who to Notify (Territory Leads)',
+    impact_source_note: 'From ticket raw text, not graph relationship',
+    impact_no_owners: 'No registered owner',
+    impact_no_resources: 'No associated resources',
+    impact_no_rules: 'No applicable rules',
+    impact_no_handlers: 'No ticket handler records',
+    impact_no_territories: 'No territory impact records',
+    impact_no_tenants: 'No tenant impact records',
+    impact_no_notify: 'No matching territory leads',
+    impact_teams_label: 'Team(s)',
+    impact_tickets_count: 'Historical tickets: {n}',
+    impact_handled_tickets: '{n} tickets',
+    impact_territory_tickets: '{n} tickets',
+    impact_covered_territories: 'Covered Territories',
+    no_excerpt: 'No raw excerpt available',
 
     empty: 'None found',
     fetch_failed: 'Could not connect to /api/health (backend may be under development).',
@@ -1101,6 +1292,15 @@ function render() {
 
   document.getElementById('title-ss').textContent = t('sec5_title');
   document.getElementById('why-ss').textContent = t('sec5_why');
+
+  document.getElementById('title-impact').textContent = t('sec6_title');
+  document.getElementById('why-impact').textContent = t('sec6_why');
+  document.getElementById('lbl-impact-select').textContent = t('lbl_select_mod');
+  document.getElementById('btn-refresh-impact').textContent = t('btn_analyze');
+
+  if (currentImpactData) {
+    renderImpact(currentImpactData);
+  }
 
   // Mode badge
   const modeBadge = document.getElementById('mode-badge');
@@ -1369,6 +1569,504 @@ function renderSuperseded(list) {
   `;
 }
 
+let currentImpactData = null;
+
+const MOCK_IMPACT_DATA = {
+  "MOD-01": {
+    "status": "ok",
+    "module": {
+      "id": "MOD-01",
+      "name": "Pipeline Orchestration Engine",
+      "kind": "Module"
+    },
+    "owners": [
+      {
+        "id": "Colin Marsh",
+        "name": "Colin Marsh",
+        "kind": "Person",
+        "aids": ["det:TECH_LEAD_OF:Colin Marsh->MOD-01:corpus/org/routing_and_points_of_contact.md:14"],
+        "evidence_ids": ["ev:corpus/org/routing_and_points_of_contact.md:14"],
+        "authorities": ["formal_rule"],
+        "teams": [
+          {
+            "id": "Operations Engineering Team (L2)",
+            "name": "Operations Engineering Team (L2)",
+            "kind": "Team",
+            "aids": ["det:MEMBER_OF:Colin Marsh->Operations Engineering Team (L2):corpus/org/contacts_roster.json:65"],
+            "evidence_ids": ["ev:corpus/org/contacts_roster.json:65"],
+            "authorities": ["formal_rule"]
+          }
+        ]
+      }
+    ],
+    "resources": [
+      {
+        "id": "Knowledge Hub - MOD-01",
+        "name": "MOD-01 Knowledge Hub",
+        "kind": "Resource",
+        "aids": ["det:HAS_RESOURCE:MOD-01->Knowledge Hub - MOD-01:corpus/docs/08-module-knowledge-base-registry.md:17"],
+        "evidence_ids": ["ev:corpus/docs/08-module-knowledge-base-registry.md:17"],
+        "authorities": ["formal_rule"]
+      }
+    ],
+    "rules": [
+      {
+        "id": "Rule:Pipeline_Step_Timeout_Default",
+        "name": "Pipeline Step Timeout Default",
+        "kind": "Rule",
+        "aids": ["llm:737959b6e9dd291d0e667cf7"],
+        "evidence_ids": ["ev:corpus/chats/chat_2026-09-11.md:26"],
+        "authorities": ["observation"]
+      }
+    ],
+    "tickets_count": 4,
+    "handlers": [
+      { "id": "Frank Stewart", "name": "Frank Stewart", "tickets": ["TCK-1073", "TCK-1091"], "count": 2, "is_owner": false },
+      { "id": "Robert Coleman", "name": "Robert Coleman", "tickets": ["TCK-1017", "TCK-1018"], "count": 2, "is_owner": false },
+      { "id": "Gordon Archer", "name": "Gordon Archer", "tickets": ["TCK-1091"], "count": 1, "is_owner": false }
+    ],
+    "affected_territories": [
+      {
+        "territory": "Sunward Metro Territory",
+        "canonical_id": "Sunward Metro",
+        "count": 2,
+        "tickets": ["TCK-1017", "TCK-1018"],
+        "evidence_ids": ["ev:corpus/tickets/tickets.jsonl:17", "ev:corpus/tickets/tickets.jsonl:18"],
+        "source_note": "来自工单原文，不是图关系"
+      },
+      {
+        "territory": "Emerald Coast Territory",
+        "canonical_id": "Emerald Coast",
+        "count": 1,
+        "tickets": ["TCK-1073"],
+        "evidence_ids": ["ev:corpus/tickets/tickets.jsonl:73"],
+        "source_note": "来自工单原文，不是图关系"
+      },
+      {
+        "territory": "Riverland Basin Territory",
+        "canonical_id": "Riverland Basin",
+        "count": 1,
+        "tickets": ["TCK-1091"],
+        "evidence_ids": ["ev:corpus/tickets/tickets.jsonl:91"],
+        "source_note": "来自工单原文，不是图关系"
+      }
+    ],
+    "affected_tenants": [
+      {
+        "tenant": "Sunward Metro Territory Research Institute",
+        "count": 2,
+        "tickets": ["TCK-1017", "TCK-1018"],
+        "evidence_ids": ["ev:corpus/tickets/tickets.jsonl:17", "ev:corpus/tickets/tickets.jsonl:18"],
+        "source_note": "来自工单原文，不是图关系"
+      },
+      {
+        "tenant": "Emerald Coast Territory Subsidiary",
+        "count": 1,
+        "tickets": ["TCK-1073"],
+        "evidence_ids": ["ev:corpus/tickets/tickets.jsonl:73"],
+        "source_note": "来自工单原文，不是图关系"
+      },
+      {
+        "tenant": "Riverland Basin Territory Subsidiary",
+        "count": 1,
+        "tickets": ["TCK-1091"],
+        "evidence_ids": ["ev:corpus/tickets/tickets.jsonl:91"],
+        "source_note": "来自工单原文，不是图关系"
+      }
+    ],
+    "notify_leads": [
+      {
+        "id": "Zachary Price",
+        "name": "Zachary Price",
+        "kind": "Person",
+        "territories": ["Sunward Metro Territory", "Riverland Basin Territory"],
+        "aids": ["det:COVERS_TERRITORY:Zachary Price->Riverland Basin:corpus/org/teams_and_responsibilities.md:27"],
+        "evidence_ids": ["ev:corpus/org/teams_and_responsibilities.md:27"],
+        "authorities": ["formal_rule"]
+      },
+      {
+        "id": "Frank Stewart",
+        "name": "Frank Stewart",
+        "kind": "Person",
+        "territories": ["Emerald Coast Territory"],
+        "aids": ["det:COVERS_TERRITORY:Frank Stewart->Emerald Coast:corpus/org/teams_and_responsibilities.md:28"],
+        "evidence_ids": ["ev:corpus/org/teams_and_responsibilities.md:28"],
+        "authorities": ["formal_rule"]
+      }
+    ],
+    "evidence": [
+      {
+        "id": "ev:corpus/org/routing_and_points_of_contact.md:14",
+        "source": "corpus/org/routing_and_points_of_contact.md",
+        "locator": "14",
+        "excerpt": "| MOD-01 | Pipeline Orchestration Engine | Colin Marsh | Operations Engineering Team (L2) |",
+        "authority": "formal_rule"
+      },
+      {
+        "id": "ev:corpus/tickets/tickets.jsonl:17",
+        "source": "corpus/tickets/tickets.jsonl",
+        "locator": "17",
+        "excerpt": "{\"ticket_id\": \"TCK-1017\", \"submission_date\": \"2026-10-12\", \"user_tenant\": \"Sunward Metro Territory Research Institute\", \"regional_territory\": \"Sunward Metro Territory\", \"module_name\": \"Pipeline Orchestration Engine\"}",
+        "authority": "observation"
+      },
+      {
+        "id": "ev:corpus/tickets/tickets.jsonl:73",
+        "source": "corpus/tickets/tickets.jsonl",
+        "locator": "73",
+        "excerpt": "{\"ticket_id\": \"TCK-1073\", \"submission_date\": \"2026-10-10\", \"user_tenant\": \"Emerald Coast Territory Subsidiary\", \"regional_territory\": \"Emerald Coast Territory\", \"module_name\": \"Pipeline Orchestration Engine\"}",
+        "authority": "observation"
+      },
+      {
+        "id": "ev:corpus/tickets/tickets.jsonl:91",
+        "source": "corpus/tickets/tickets.jsonl",
+        "locator": "91",
+        "excerpt": "{\"ticket_id\": \"TCK-1091\", \"submission_date\": \"2026-10-07\", \"user_tenant\": \"Riverland Basin Territory Subsidiary\", \"regional_territory\": \"Riverland Basin Territory\", \"module_name\": \"ZeroTrust SDP & Network Policy\"}",
+        "authority": "observation"
+      },
+      {
+        "id": "ev:corpus/org/teams_and_responsibilities.md:27",
+        "source": "corpus/org/teams_and_responsibilities.md",
+        "locator": "27",
+        "excerpt": "Zachary Price covers Riverland Basin territory.",
+        "authority": "formal_rule"
+      },
+      {
+        "id": "ev:corpus/org/teams_and_responsibilities.md:28",
+        "source": "corpus/org/teams_and_responsibilities.md",
+        "locator": "28",
+        "excerpt": "Frank Stewart covers Emerald Coast territory.",
+        "authority": "formal_rule"
+      }
+    ]
+  }
+};
+
+function renderImpact(data) {
+  currentImpactData = data;
+  const container = document.getElementById('content-impact');
+  const badge = document.getElementById('badge-impact');
+
+  if (!data || data.status === 'not_found') {
+    badge.textContent = '0';
+    container.innerHTML = `<div class="empty">${escapeHtml(t('impact_not_found'))}</div>`;
+    return;
+  }
+
+  badge.textContent = String(data.tickets_count ?? 0);
+
+  const evidenceMap = new Map((data.evidence || []).map(e => [e.id, e]));
+
+  function renderEvidenceList(evIds) {
+    if (!evIds || !evIds.length) return '';
+    return evIds.map(evid => {
+      const ev = evidenceMap.get(evid);
+      if (!ev) return '';
+      const auth = ev.authority || 'observation';
+      const authBadgeClass = auth === 'formal_rule' ? 'badge-ok' : 'badge-warn';
+      return `
+        <details class="evidence-toggle">
+          <summary class="evidence-summary">
+            <span class="pred-pill">📜 ${escapeHtml(ev.source)}:${escapeHtml(ev.locator)}</span>
+            <span class="badge ${authBadgeClass}">${escapeHtml(auth)}</span>
+          </summary>
+          <div class="evidence-body">
+            <div class="evidence-meta"><strong>ID:</strong> <code>${escapeHtml(ev.id)}</code> | <strong>Locator:</strong> <code>${escapeHtml(ev.locator)}</code></div>
+            <pre class="evidence-excerpt">${escapeHtml(ev.excerpt || t('no_excerpt'))}</pre>
+          </div>
+        </details>
+      `;
+    }).join('');
+  }
+
+  function renderAids(aids) {
+    // Internal assertion ids mean nothing to a reader; the evidence chips below carry the proof.
+    return '';
+    return aids.map(aid => `<span class="mod-chip"><code>${escapeHtml(aid)}</code></span>`).join(' ');
+  }
+
+  // 1. Owners & Teams
+  const ownersHtml = (data.owners && data.owners.length) ? data.owners.map(o => `
+    <div class="sp-card" style="margin-bottom:8px;">
+      <div class="sp-head">
+        <span class="sp-person">👤 ${escapeHtml(o.name)}</span>
+        <span class="badge badge-active">${escapeHtml(o.kind || 'Person')}</span>
+      </div>
+      ${o.aids && o.aids.length ? `<div style="font-size:11px;color:var(--muted);">${renderAids(o.aids)}</div>` : ''}
+      ${renderEvidenceList(o.evidence_ids)}
+      ${o.teams && o.teams.length ? `
+        <div style="margin-top:6px;font-size:12px;">
+          <span style="color:var(--muted);">${escapeHtml(t('impact_teams_label'))}:</span>
+          ${o.teams.map(tm => `
+            <div style="margin-top:4px;padding:6px 10px;background:var(--chip-bg);border-radius:4px;border:1px solid var(--line);">
+              <strong>🏢 ${escapeHtml(tm.name)}</strong>
+              ${renderEvidenceList(tm.evidence_ids)}
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+    </div>
+  `).join('') : `<div class="empty" style="padding:12px;">${escapeHtml(t('impact_no_owners'))}</div>`;
+
+  // 2. Resources (HAS_RESOURCE)
+  const resourcesHtml = (data.resources && data.resources.length) ? data.resources.map(res => `
+    <div style="padding:8px 12px;background:var(--chip-bg);border:1px solid var(--line);border-radius:6px;margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span><strong>📚 ${escapeHtml(res.name)}</strong> <code>${escapeHtml(res.id)}</code></span>
+        <span class="badge badge-active">${escapeHtml(res.kind || 'Resource')}</span>
+      </div>
+      ${res.aids && res.aids.length ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">${renderAids(res.aids)}</div>` : ''}
+      ${renderEvidenceList(res.evidence_ids)}
+    </div>
+  `).join('') : `<div class="empty" style="padding:12px;">${escapeHtml(t('impact_no_resources'))}</div>`;
+
+  // 3. Rules (APPLIES_TO)
+  const rulesHtml = (data.rules && data.rules.length) ? data.rules.map(rule => `
+    <div style="padding:8px 12px;background:var(--chip-bg);border:1px solid var(--line);border-radius:6px;margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span><strong>⚖️ ${escapeHtml(rule.name)}</strong> <code>${escapeHtml(rule.id)}</code></span>
+        <span class="badge badge-active">${escapeHtml(rule.kind || 'Rule')}</span>
+      </div>
+      ${rule.aids && rule.aids.length ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">${renderAids(rule.aids)}</div>` : ''}
+      ${renderEvidenceList(rule.evidence_ids)}
+    </div>
+  `).join('') : `<div class="empty" style="padding:12px;">${escapeHtml(t('impact_no_rules'))}</div>`;
+
+  // 4. Tickets & Handlers
+  const handlersHtml = (data.handlers && data.handlers.length) ? `
+    <div class="items-grid" style="margin-top:6px;">
+      ${data.handlers.map(h => `
+        <div style="padding:8px 12px;background:var(--chip-bg);border:1px solid var(--line);border-radius:6px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;">🛠️ ${escapeHtml(h.name)}</span>
+            <span class="badge ${h.is_owner ? 'badge-ok' : 'badge-active'}">${h.is_owner ? '✓ Owner' : escapeHtml(t('impact_handled_tickets', { n: h.count }))}</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">
+            ${(h.tickets || []).map(tk => `<code>${escapeHtml(tk)}</code>`).join(' ')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  ` : `<div class="empty" style="padding:12px;">${escapeHtml(t('impact_no_handlers'))}</div>`;
+
+  // 5. Affected Territories & Tenants
+  const territoriesHtml = (data.affected_territories && data.affected_territories.length) ? `
+    <div style="margin-bottom:10px;">
+      <div style="font-weight:600;font-size:12px;margin-bottom:6px;color:var(--text);">${escapeHtml(t('impact_territories'))}:</div>
+      <div class="items-grid">
+        ${data.affected_territories.map(tItem => `
+          <div style="padding:10px 12px;background:var(--chip-bg);border:1px solid var(--line);border-radius:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+              <span><strong>📍 ${escapeHtml(tItem.territory)}</strong></span>
+              <span class="badge badge-warn">${escapeHtml(t('impact_territory_tickets', { n: tItem.count }))}</span>
+            </div>
+            ${tItem.canonical_id ? `<div style="font-size:11px;color:var(--blue);margin-top:2px;">Graph ID: <code>${escapeHtml(tItem.canonical_id)}</code></div>` : ''}
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">
+              ${(tItem.tickets || []).map(tk => `<code>${escapeHtml(tk)}</code>`).join(' ')}
+            </div>
+            ${renderEvidenceList(tItem.evidence_ids)}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : `<div class="empty" style="padding:12px;margin-bottom:10px;">${escapeHtml(t('impact_no_territories'))}</div>`;
+
+  const tenantsHtml = (data.affected_tenants && data.affected_tenants.length) ? `
+    <div>
+      <div style="font-weight:600;font-size:12px;margin-bottom:6px;color:var(--text);">${escapeHtml(t('impact_tenants'))}:</div>
+      <div class="items-grid">
+        ${data.affected_tenants.map(tnItem => `
+          <div style="padding:10px 12px;background:var(--chip-bg);border:1px solid var(--line);border-radius:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+              <span><strong>🏢 ${escapeHtml(tnItem.tenant)}</strong></span>
+              <span class="badge badge-warn">${escapeHtml(t('impact_territory_tickets', { n: tnItem.count }))}</span>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">
+              ${(tnItem.tickets || []).map(tk => `<code>${escapeHtml(tk)}</code>`).join(' ')}
+            </div>
+            ${renderEvidenceList(tnItem.evidence_ids)}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : `<div class="empty" style="padding:12px;">${escapeHtml(t('impact_no_tenants'))}</div>`;
+
+  // 6. Who to notify (Territory leads)
+  const notifyHtml = (data.notify_leads && data.notify_leads.length) ? `
+    <div class="items-grid">
+      ${data.notify_leads.map(nl => `
+        <div style="padding:12px;background:var(--chip-bg);border:1px solid var(--line);border-radius:6px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <span style="font-weight:600;font-size:14px;">🚨 ${escapeHtml(nl.name)}</span>
+            <span class="badge ${nl.authorities && nl.authorities.includes('formal_rule') ? 'badge-ok' : 'badge-warn'}">
+              ${nl.authorities && nl.authorities.includes('formal_rule') ? 'formal_rule' : 'observation'}
+            </span>
+          </div>
+          <div style="margin-top:6px;font-size:12px;">
+            <span style="color:var(--muted);">${escapeHtml(t('impact_covered_territories'))}:</span>
+            ${(nl.territories || []).map(tName => `<span class="pred-pill" style="margin-right:4px;display:inline-block;margin-top:3px;">📍 ${escapeHtml(tName)}</span>`).join('')}
+          </div>
+          ${nl.aids && nl.aids.length ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">${renderAids(nl.aids)}</div>` : ''}
+          ${renderEvidenceList(nl.evidence_ids)}
+        </div>
+      `).join('')}
+    </div>
+  ` : `<div class="empty" style="padding:12px;">${escapeHtml(t('impact_no_notify'))}</div>`;
+
+  // Assemble full card
+  container.innerHTML = `
+    <div class="impact-result-card">
+      <div class="impact-meta-header">
+        <div>
+          <span style="font-size:16px;font-weight:700;color:var(--text);">${escapeHtml(data.module.name)}</span>
+          <code style="margin-left:8px;font-size:13px;color:var(--blue);background:var(--code-bg);padding:2px 6px;border-radius:4px;border:1px solid var(--line);">${escapeHtml(data.module.id)}</code>
+        </div>
+        <div>
+          <span class="badge badge-active">${escapeHtml(t('impact_tickets_count', { n: data.tickets_count ?? 0 }))}</span>
+        </div>
+      </div>
+
+      <!-- Owners & Teams -->
+      <div class="impact-block">
+        <div class="impact-block-title">
+          <span>👔 ${escapeHtml(t('impact_owners_teams'))}</span>
+        </div>
+        ${ownersHtml}
+      </div>
+
+      <!-- Resources -->
+      <div class="impact-block">
+        <div class="impact-block-title">
+          <span>📚 ${escapeHtml(t('impact_resources'))}</span>
+        </div>
+        ${resourcesHtml}
+      </div>
+
+      <!-- Rules -->
+      <div class="impact-block">
+        <div class="impact-block-title">
+          <span>⚖️ ${escapeHtml(t('impact_rules'))}</span>
+        </div>
+        ${rulesHtml}
+      </div>
+
+      <!-- Tickets & Handlers -->
+      <div class="impact-block">
+        <div class="impact-block-title">
+          <span>🎫 ${escapeHtml(t('impact_tickets_handlers'))}</span>
+        </div>
+        ${handlersHtml}
+      </div>
+
+      <!-- Affected Territories & Tenants -->
+      <div class="impact-block">
+        <div class="impact-block-title">
+          <span>🌍 ${escapeHtml(t('impact_territories'))} & ${escapeHtml(t('impact_tenants'))}</span>
+          <span class="source-note-pill">⚠️ ${escapeHtml(t('impact_source_note'))}</span>
+        </div>
+        ${territoriesHtml}
+        ${tenantsHtml}
+      </div>
+
+      <!-- Who to Notify -->
+      <div class="impact-block">
+        <div class="impact-block-title">
+          <span>🔔 ${escapeHtml(t('impact_notify_leads'))}</span>
+        </div>
+        ${notifyHtml}
+      </div>
+    </div>
+  `;
+}
+
+async function loadModulesList() {
+  const select = document.getElementById('impact-mod-select');
+  if (!select) return;
+
+  let modules = [];
+  if (!isMockActive) {
+    try {
+      const resp = await fetch('/api/modules');
+      if (resp.ok) {
+        modules = await resp.json();
+      }
+    } catch (e) {
+      console.warn('Failed to fetch /api/modules:', e);
+    }
+  }
+
+  // Fallback: collect from activeData or mock
+  if (!modules.length && activeData) {
+    const map = new Map();
+    (activeData.owner_vs_handlers || []).forEach(m => {
+      if (m.module_id) map.set(m.module_id, m.module_name || m.module_id);
+    });
+    (activeData.single_points || []).forEach(sp => {
+      (sp.modules || []).forEach(m => {
+        if (m.id) map.set(m.id, m.name || m.id);
+      });
+    });
+    modules = Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+    modules.sort((a, b) => a.id.localeCompare(b.id));
+  }
+
+  if (!modules.length) {
+    modules = [
+      { id: 'MOD-01', name: 'Pipeline Orchestration Engine' },
+      { id: 'MOD-02', name: 'Auth Service' },
+      { id: 'MOD-04', name: 'Billing Engine' }
+    ];
+  }
+
+  const currentVal = select.value;
+  select.innerHTML = `<option value="">${escapeHtml(t('select_placeholder'))}</option>` +
+    modules.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.id)} - ${escapeHtml(m.name)}</option>`).join('');
+
+  if (currentVal && modules.some(m => m.id === currentVal)) {
+    select.value = currentVal;
+  } else if (!currentVal && modules.length > 0) {
+    const defaultMod = modules.find(m => m.id === 'MOD-01') || modules[0];
+    if (defaultMod) {
+      select.value = defaultMod.id;
+      loadImpactAnalysis(defaultMod.id);
+    }
+  }
+}
+
+async function loadImpactAnalysis(moduleId) {
+  const container = document.getElementById('content-impact');
+  if (!container) return;
+  if (!moduleId) {
+    container.innerHTML = `<div class="empty">${escapeHtml(t('impact_select_prompt'))}</div>`;
+    return;
+  }
+  container.innerHTML = `<div class="empty">${escapeHtml(t('impact_loading'))}</div>`;
+
+  if (isMockActive) {
+    renderImpact(MOCK_IMPACT_DATA[moduleId] || MOCK_IMPACT_DATA['MOD-01'] || {
+      status: 'ok',
+      module: { id: moduleId, name: moduleId, kind: 'Module' },
+      owners: [], resources: [], rules: [], tickets_count: 0, handlers: [],
+      affected_territories: [], affected_tenants: [], notify_leads: [], evidence: []
+    });
+    return;
+  }
+
+  try {
+    const resp = await fetch(`/api/impact/${encodeURIComponent(moduleId)}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    renderImpact(data);
+  } catch (e) {
+    console.warn('Failed to fetch /api/impact:', e);
+    // Graceful fallback to mock data if backend not reachable
+    if (MOCK_IMPACT_DATA[moduleId]) {
+      renderImpact(MOCK_IMPACT_DATA[moduleId]);
+    } else {
+      container.innerHTML = `<div class="empty">${escapeHtml(t('impact_not_found'))}</div>`;
+    }
+  }
+}
+
 function showBanner(message, isError = false, showMockBtn = false) {
   const banner = document.getElementById('status-banner');
   banner.className = isError ? 'banner error' : 'banner';
@@ -1398,6 +2096,19 @@ async function init() {
     btn.addEventListener('click', () => setLanguage(btn.dataset.lang));
   });
 
+  // Bind impact controls
+  const select = document.getElementById('impact-mod-select');
+  if (select) {
+    select.addEventListener('change', () => loadImpactAnalysis(select.value));
+  }
+  const btnAnalyze = document.getElementById('btn-refresh-impact');
+  if (btnAnalyze) {
+    btnAnalyze.addEventListener('click', () => {
+      const mod = select ? select.value : '';
+      if (mod) loadImpactAnalysis(mod);
+    });
+  }
+
   const urlParams = new URLSearchParams(window.location.search);
   const forceMock = urlParams.get('mock') === '1';
 
@@ -1405,6 +2116,7 @@ async function init() {
     isMockActive = true;
     activeData = MOCK_DATA;
     render();
+    await loadModulesList();
     return;
   }
 
@@ -1418,6 +2130,7 @@ async function init() {
     isMockActive = false;
     activeData = data;
     render();
+    await loadModulesList();
   } catch (err) {
     console.warn('API health fetch failed:', err);
     // Provide seamless fallback option
@@ -1426,6 +2139,7 @@ async function init() {
     activeData = MOCK_DATA;
     isMockActive = true;
     render();
+    await loadModulesList();
     showBanner(t('fetch_failed'), true, false);
   }
 }

@@ -129,6 +129,23 @@ def health():
     return jsonify(kb_health())
 
 
+@app.get("/api/modules")
+@available
+def list_modules():
+    """List all modules for impact analysis dropdown."""
+    from oncall_brain.impact import get_all_modules
+    return jsonify(get_all_modules())
+
+
+@app.get("/api/impact/<path:module_id>")
+@available
+def impact(module_id):
+    """Impact analysis for a given module."""
+    from oncall_brain.impact import module_impact
+    result = module_impact(module_id)
+    return jsonify(result), 404 if result.get("status") == "not_found" else 200
+
+
 @app.get("/api/ontology")
 @available
 def ontology():
