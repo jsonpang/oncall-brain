@@ -1,55 +1,308 @@
 # OnCall Brain
 
-> Ask the company knowledge graph who owns what, which rule is current, and what to do next — every claim traced back to a file and line.
+> Ask who owns it, who has fixed it, which rule applies, and what to do next. Follow each answer back to its source line.
 
-A support organisation spread across three vendors, four teams and twelve regional
-territories has its rules scattered over operations docs, chat logs and ticket
-exports. OnCall Brain fuses them into one FalkorDB knowledge graph and answers
-questions through four read-only tools, citing the assertion id and its evidence
-location for every claim. When the material has no answer it says so instead of
-guessing.
+**FalkorDB Graph Hacks - Track: T3 Company Brain**
 
-All data describes **AetherPulse**, a fictional company. The corpus is synthetic;
-no real organisation, person or contact appears anywhere in it.
+OnCall Brain joins operations documents, organisation records, chat discussions,
+and support tickets in a FalkorDB knowledge graph. It separates official
+responsibility from ticket-handling history, keeps rule replacement chains,
+and answers with clickable evidence instead of unsupported assignments.
 
-**Track:** Graph Hacks — **Company Brain** (docs, tickets and chat fused into one
-graph; who owns what vs. who curates what; every answer traceable to its source;
-superseded rules kept out of current answers).
+All company records describe **AetherPulse**, a fictional company. The corpus,
+people, teams, territories, tickets, and policies are synthetic.
 
-## Install
+## Install / Quick start
 
-Requires Python 3.12, a FalkorDB instance (e.g. `docker run -p 6379:6379 falkordb/falkordb`)
-and any OpenAI-compatible chat endpoint that supports tool calling.
+Requires Python 3.12, Docker, and any OpenAI-compatible tool-calling model.
+Run commands from the repository root. No extraction cache is included in the
+public snapshot: the first ingest makes paid or quota-consuming LLM requests.
+
+### 1. Start FalkorDB and install dependencies
 
 ```bash
-pip install -r requirements.txt
+docker run -d --name oncall-falkor -p 127.0.0.1:6379:6379 falkordb/falkordb
+python -m venv .venv
+```
 
-# .env (gitignored) — never commit real keys
+Activate the environment with `source .venv/bin/activate` on Bash, or
+`.\.venv\Scripts\Activate.ps1` on PowerShell, then install:
+
+```bash
+python -m pip install -r requirements.txt
+# Optional: needed only when enabling Jev candidate selection below
+python -m pip install requests
+```
+
+### 2. Configure .env
+
+Create a UTF-8 file named `.env` in the repository root (gitignored). This
+snapshot has no `.env.example`; use this complete example and replace the
+endpoint, model, and key placeholders. Keep keys out of Git.
+
+```dotenv
 FALKOR_HOST=127.0.0.1
 FALKOR_PORT=6379
 GRAPH_NAME=oncall_brain
 LLM_BASE_URL=https://<your-openai-compatible-endpoint>/v1
-LLM_MODEL=<a tool-calling model, e.g. gemini-3.8-flash-high>
-LLM_API_KEY=<your key>
-# optional: LLM_JUDGE_MODEL=<a different model for eval judging>
+LLM_MODEL=<your-tool-calling-model>
+LLM_API_KEY=<your-key>
+# Optional: override fast-mode compose/translation model
+# FAST_MODEL=<your-fast-model>
+# Optional: use a separate evaluation judge
+# LLM_JUDGE_MODEL=<your-judge-model>
+# Optional: enable Jev selection (also install requests above)
+# TYPESAFE_API_KEY=<your-typesafe-key>
 ```
 
-Build and query:
+Set the port explicitly: `db.py` defaults to **16379**, while the Docker command
+above publishes **6379**. The endpoint must also support JSON-object responses
+for ingest; semantic-slot annotation requests `reasoning_effort="low"`.
+Provider support for these options matters even when tool calling works.
+
+### 3. Ingest, approve, and inspect
 
 ```bash
-python cli.py ingest            # rebuild the graph from corpus/
-python cli.py approve           # approve candidate assertions (logged)
-python cli.py stats             # graph size + source distribution
+python cli.py ingest
+python cli.py approve
+python cli.py stats
 python cli.py ask "Where can I find our module knowledge base for Pipeline?"
-python cli.py mcp               # serve the same tools over MCP (stdio)
-
-python eval/run_gold.py         # 17 gold-card questions -> eval/results/latest.md
-python -m web.app               # web UI on http://127.0.0.1:8000
 ```
 
-The web UI shows three panes: the cited answer (click any citation to read the
-source line), the subgraph behind it (click a node to expand its neighbours), and
-the real tool-call trace with the Cypher template names each call executed.
+`ingest` rebuilds the configured graph. It parses structured records, asks the
+LLM to propose assertions, validates them, and writes candidates; `approve`
+changes **all** candidate relationships to approved and logs the operation in
+`ingest/approved.log`. Review `ingest/rejected.jsonl` for rejected proposals.
+`stats` prints graph size, predicate counts, and evidence-source distribution.
+
+On a cold cache, extraction makes one LLM call per free-text corpus slice
+(`corpus/docs/*.md` sections and `corpus/chats/*.md` windows), with up to three
+attempts per slice. Semantic-slot annotation then makes an additional call per
+batch of up to 12 referenced document/chat evidence records. These stages run
+sequentially. No dependable first-run duration is established; allow time for
+all slices and batches, depending on provider latency and throttling. Generated
+results are cached under `ingest/cache`; subsequent matching requests reuse them.
+`python cli.py ingest --no-llm` is a structured-data-only diagnostic shortcut;
+it omits free-text extraction and slot annotation, so it cannot reproduce the
+full question set or feature examples.
+
+### 4. Start the Web UI on the same graph
+
+Web sets a default graph name before loading `.env`. Explicitly export the
+same `GRAPH_NAME` used for ingest so the Web UI reads the graph you just built.
+
+Bash:
+
+```bash
+export GRAPH_NAME=oncall_brain
+python -m web.app
+```
+
+PowerShell:
+
+```powershell
+$env:GRAPH_NAME='oncall_brain'
+python -m web.app
+```
+
+Open **http://127.0.0.1:8000/**. Set `WEB_PORT` to change the port. Ask an English
+question or choose one of the 17 gold-card examples. The answer path shows the
+facts behind the conclusion and replaced rules; click a citation to inspect
+its source, expand neighbours in Explore, and open the trace to inspect executed
+queries. Streaming progress includes retrieval, selection, reads, and a compose
+timer. The UI supports English and Chinese answers.
+
+| Page | What to inspect |
+|---|---|
+| `/` | Question answering, owner/handler card, answer path, evidence, Explore, and step trace |
+| `/health` | KB risk checks, module impact, and procedure ordering; choose the graph-backed view for live graph results |
+| `/demo` | Isolated notice/supersession demonstration; configure a demo graph as described below |
+
+HTTP routes in `web/app.py` (all GET unless marked POST):
+
+| Routes | Purpose |
+|---|---|
+| `/api/examples`, `/api/ontology` | Gold questions and controlled ontology |
+| `/api/search?q=Pipeline`, `/api/node/<node_id>`, `/api/neighbors/<node_id>` | Entity search, readback, and one-hop exploration |
+| **POST** `/api/ask`, **POST** `/api/ask/stream` | Answer JSON or server-sent progress events; body includes `question`, optional `mode` and `lang` |
+| `/api/health`, `/api/modules`, `/api/impact/<module_id>` | Health report, module choices, impact report |
+| `/api/procedures`, `/api/procedure/<procedure_id>/steps` | Procedure choices and evidence-backed steps |
+| **POST** `/api/demo/notice`, **POST** `/api/demo/reset` | Insert a notice into, or delete, the configured `_demo` graph |
+
+### Fast mode and other entry points
+
+Web defaults to `mode: "fast"`; send `mode: "deep"` to either ask endpoint for
+the model-driven tool loop. There is no CLI `--fast` flag: `cli.py ask` and the
+gold-card runner call `agent.ask` (deep mode). Python callers can explicitly use
+`oncall_brain.fast.ask_fast(question)`.
+
+Fast mode retrieves first: fulltext/identifier candidates and IDF-weighted
+source lines -> Jev chooses entities to read -> read approved graph assertions
+-> optionally select and read one more neighbour hop -> run module expertise for
+who-to-ask questions -> one compose-model response. Jev uses `jev-latest` at
+TypeSafe System One, enabled by `TYPESAFE_API_KEY`. Without a key, or on request
+failure, selection falls back to fulltext ranking. It can make two Jev requests
+(initial candidates and neighbours). Initial Jev selection reads at most five
+entities; the next hop reads at most three. The fallback initially takes four.
+
+The compose model is `FAST_MODEL` falling back to `LLM_MODEL` (or a Python
+`model` argument). Normally there is one compose call, with one retry on an
+empty response or provider error. A Chinese question adds a best-effort English
+translation call before retrieval. Both modes share citation grounding and
+answer-status checks; fast mode does not ask the model to generate Cypher.
+
+```bash
+python cli.py mcp  # stdio server for an MCP client; runs until disconnected
+```
+
+MCP exposes `describe_ontology`, `search_knowledge`, `read_knowledge`, and
+`query_relations`. `module_expertise` is additionally available in the Python
+agent tool registry and fast-mode pipeline; it is not registered in the MCP
+adapter. Health, impact, and sequence are Python/HTTP features.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    C["AetherPulse corpus: docs, org, chat, tickets"] --> I
+    subgraph I["Ingest"]
+        L["LLM propose / structured parsing"] --> V["Validate schema, ids, evidence"]
+        V --> K["Candidate assertions"] --> A["Approve"]
+    end
+    A --> G["FalkorDB: entities, assertions, Evidence"]
+    G --> T["Server-owned tools / Cypher templates"]
+    T --> F["Fast agent: graph first, Jev selection, one compose response"]
+    F --> W["Web UI / HTTP"]
+    T --> D["Deep agent"] --> CLI["CLI"]
+    D --> W
+    T --> M["MCP stdio: four core tools"]
+```
+
+FalkorDB joins across source types, resolves ownership and ticket handlers,
+filters relationship visibility at each hop, and retains replacement history.
+The model composes an answer from retrieved evidence. It never executes arbitrary
+model-written Cypher. CLI uses the deep agent, while MCP exposes retrieval tools
+to its client rather than running the fast agent itself.
+
+## Features
+
+### Who has actually fixed it (`module_expertise`)
+
+As an on-call engineer, I want to see the official owner alongside people who
+have handled the module's tickets, so that I can find experienced help while
+preserving the escalation path.
+
+`tools.module_expertise` joins `Ticket -ABOUT-> Module` with
+`Ticket -HANDLED_BY-> Person`, applying visibility to both edges, then compares
+handlers with `TECH_LEAD_OF` / `MAINTAINED_BY` neighbours. Python deduplicates and
+ranks handlers by ticket count. Fast mode triggers this for who-to-ask questions;
+the Web card links to ticket evidence. Ticket history proves past handling,
+not current availability, official ownership, or that an absent owner never
+handled an issue.
+
+### KB health check (`kb_health`, `/health`)
+
+As an on-call engineer maintaining the knowledge base, I want risks grouped by
+module and rule, so that I can locate ownership gaps and policy cleanup work.
+
+`health.kb_health` queries `TECH_LEAD_OF` for people covering two or more modules,
+joins module owners with ticket handlers, finds Rule/Notice relationships whose
+evidence resolves only to chat sources, checks competing semantic slots and
+single-valued predicates, and reads `SUPERSEDES` chains with dates. Modules
+without handler history are omitted from owner/handler comparison. Totals count
+stored entities, assertions of every state, and tickets; risk relationships use
+current visibility. These are maintenance signals, not measured staffing limits.
+Use the graph-backed view of `/health` or inspect `/api/health` directly.
+
+### Impact analysis (`module_impact`)
+
+As an on-call engineer, I want a module's owners, teams, resources, rules, and
+historical ticket footprint together, so that I can identify whom to involve
+and then verify the current incident's scope.
+
+`impact.module_impact` follows `TECH_LEAD_OF` then `MEMBER_OF`, `HAS_RESOURCE`,
+reverse `APPLIES_TO`, and reverse `ABOUT` plus `HANDLED_BY`. It resolves territory
+nodes and follows reverse `COVERS_TERRITORY` to find contacts. Territory/tenant
+fields are parsed from ticket evidence JSON, **not graph relationships**. They
+show historical ticket scope, not a live outage or dependency propagation.
+Choose a module on `/health`, or call `/api/impact/<module_id>`.
+
+### Procedure sequence (`PRECEDES` topological order)
+
+As an on-call engineer, I want sourced step order, explicit parallel steps, and
+unknown order distinguished, so that I can follow a procedure without inventing
+its sequence.
+
+`sequence.procedure_steps` queries `HAS_STEP`, then `PRECEDES` and
+`PARALLEL_WITH` between member steps, and retrieves rules, resources, performers,
+and required fields. Python contracts explicit parallel components and applies
+Kahn topological sorting with cycle detection. Sharing a topological frontier
+does not prove explicit parallelism; steps without ordering evidence remain
+order-unknown. Inspect the sequence section on `/health` or the procedure API.
+
+### Freshness demo (`SUPERSEDES`, `/demo`)
+
+As an on-call engineer, I want to add an effective-dated replacement in an
+isolated graph and repeat the same question, so that I can show how knowledge
+updates change the current answer while retaining its history.
+
+`freshness.clone_demo_graph` uses `GRAPH.COPY`. `add_notice` checks the old
+Rule/Notice, duplicate ids and existing notice authority, reads inherited
+`APPLIES_TO` / `GOVERNED_BY` context along the replacement chain, then atomically
+creates a Notice, Evidence, approved `SUPERSEDES` edge, and copied scope edges.
+The demo's 30-minute timeout is an injected example replacing the corpus's
+60-minute notice; it is not an original corpus policy. New source text is
+preserved, but structured numeric claims are not extracted (`claims_json=[]`).
+
+After normal ingest/approve, stop the normal Web process and use a separate
+terminal for this PowerShell sequence (choose an unused demo port):
+
+```powershell
+python -c "from oncall_brain.freshness import clone_demo_graph; print(clone_demo_graph('oncall_brain','oncall_brain_freshness_demo'))"
+$env:GRAPH_NAME='oncall_brain_freshness_demo'
+$env:DEMO_GRAPH=$env:GRAPH_NAME
+$env:ONCALL_NOW='2026-10-16'
+$env:WEB_PORT='18002'
+python -m web.app
+```
+
+1. Open `http://127.0.0.1:18002/demo` and read the prefilled rule id `Rule:Default_Step_Timeout_60_Minutes`.
+2. Inspect the 60-minute rule and its source.
+3. Add the prefilled 30-minute notice with effective date `2026-10-16`.
+4. Read the same rule again; follow its replacement to the new notice and evidence.
+5. Inspect the greyed old rule, new notice, and effective date (120 -> 60 -> 30 chain).
+6. Reset to delete the entire demo graph; stop its Web process. Copy again for another demonstration.
+
+The `/demo` page uses graph reads directly, without an LLM. To demonstrate
+composed answers too, ask the same timeout question on that server's `/` before
+and after insertion. `GRAPH_NAME` (reads) and `DEMO_GRAPH` (writes/reset) must
+match. Only names ending in `_demo` can be written/deleted by these helpers;
+copy refuses an existing destination. Future notices remain invisible until
+their effective date. A fresh terminal restores normal settings after the demo.
+
+### Answer states and conflict support
+
+| State | User-facing meaning |
+|---|---|
+| `applicable` | The retrieved evidence supports an actionable answer |
+| `superseded` | An old rule has a visible replacement; inspect the chain and date |
+| `insufficient_context` | A required condition or supported detail is missing |
+| `conflict` | Competing claims or cited source statements require reconciliation |
+| `not_found` | The material retrieved does not support the requested answer |
+
+Graph conflict checks require the same subject/slot, different mutually
+exclusive values, compatible conditions, and overlapping validity intervals.
+Multi-valued facts, different value kinds, or differently qualified measured
+items (for example, different violation categories in a penalty scale) are not
+automatically conflicts.
+
+A model's `conflict` label survives the Web check only with a graph conflict
+record **or at least two distinct source-line references in its Conflicts
+section**. Otherwise the response reports `status_source: conflict_unsupported`
+and falls back to `applicable` with evidence or `not_found` without it. This
+source-line check counts distinct locators; it does not independently prove
+that their meanings contradict. Unmatched citations can further downgrade the
+response to `insufficient_context` (`citation_validation`).
 
 ## Graph model
 
@@ -112,74 +365,140 @@ An entity targeted by a visible `SUPERSEDES` edge is flagged superseded and held
 out of current answers, but surfaced together with its replacement and effective
 date.
 
-## Cypher templates
+## Cypher templates and query inventory
 
-The model never writes Cypher — it selects predicates, direction and hop count,
-and the server substitutes them into these templates (all in
-`oncall_brain/tools.py:TEMPLATES`):
+All queries are server-owned. The model chooses arguments, predicates, direction,
+and hop count. Only registered predicates are accepted. Names in backticks below
+are literal `tools.TEMPLATES` keys; other names describe inline queries rather
+than additional registry entries. Locations are relative to the repository root.
 
-| Template | Purpose |
-|---|---|
-| `fulltext_search` / `fulltext_search_kind` | entity lookup by name via the fulltext index, optionally filtered by kind |
-| `id_prefix` / `id_prefix_kind` | substring fallback when the fulltext index misses |
-| `read_entity` | properties of one entity |
-| `read_neighbors` | all visible assertions touching an entity (both directions) |
-| `superseded_targets` | every entity currently superseded, with replacement and date |
-| `traverse` | variable-length path expansion with per-hop visibility filtering via `all(rel IN relationships(p) WHERE ...)` |
-| `evidence_by_id` | resolve evidence records to source/locator/excerpt/authority |
-| `source_search` | verbatim lookup over `Evidence` lines, for identifiers no entity name carries |
-| `slot_claims` / `claim_value_kinds` | competing values for one semantic slot, for conflict detection |
+| Name | Purpose | File:function |
+|---|---|---|
+| `fulltext_search` / `fulltext_search_kind` | Indexed entity search, optionally by kind | `oncall_brain/tools.py:search_knowledge`; also `oncall_brain/fast.py:_candidates` |
+| `id_prefix` / `id_prefix_kind` | Case-insensitive id substring fallback | `oncall_brain/tools.py:search_knowledge`; also `oncall_brain/fast.py:_candidates` |
+| `read_entity` | Entity properties | `oncall_brain/tools.py:read_knowledge` |
+| `read_neighbors` | Visible incident assertions in both directions | `oncall_brain/tools.py:read_knowledge` |
+| `superseded_targets` | Replacement ids, assertion ids, effective dates | `oncall_brain/tools.py:_superseded` |
+| `traverse` | Up to three hops with per-relationship visibility | `oncall_brain/tools.py:query_relations` |
+| `evidence_by_id` | Resolve evidence and neighbouring thread lines | `oncall_brain/tools.py:_evidence`, `_with_context`, `_nearby_sources` |
+| `source_search` | Verbatim evidence substring search | `oncall_brain/tools.py:_source_rows` |
+| `slot_claims` | Retrieve structured claims for relevant subjects/objects | `oncall_brain/tools.py:_slot_conflicts` |
+| `claim_value_kinds` | Resolve value entity kinds before comparison | `oncall_brain/tools.py:_slot_conflicts` |
+| Source-line catalogue | Read Evidence once for IDF-weighted retrieval | `oncall_brain/tools.py:related_source_lines` |
+| Assertion evidence lookup | Resolve evidence on a validated relation pattern by aid | `oncall_brain/tools.py:_rel_evidence` |
+| Expertise ticket-handler join | Join ABOUT and HANDLED_BY with visibility on both | `oncall_brain/tools.py:module_expertise` |
+| Expertise owner neighbours | TECH_LEAD_OF / MAINTAINED_BY alongside history | `oncall_brain/tools.py:module_expertise` |
+| Health evidence locations | Evidence ids to source:line | `oncall_brain/health.py:_sources` |
+| Health entity total | Count Entity nodes | `oncall_brain/health.py:_totals` |
+| Health assertion total | Count stored non-EVIDENCE relationships | `oncall_brain/health.py:_totals` |
+| Health ticket total | Count Ticket nodes | `oncall_brain/health.py:_totals` |
+| Health lead coverage | Visible TECH_LEAD_OF, grouped in Python | `oncall_brain/health.py:_single_points` |
+| Health module owners | Visible TECH_LEAD_OF per module | `oncall_brain/health.py:_owner_vs_handlers` |
+| Health module handlers | ABOUT / HANDLED_BY join across modules | `oncall_brain/health.py:_owner_vs_handlers` |
+| Health chat-only rules | Rule/Notice incident evidence, then source lookup | `oncall_brain/health.py:_chat_only_rules` |
+| Health conflict subjects | All Entity ids for shared slot-conflict checks | `oncall_brain/health.py:_conflicts` |
+| Health single-valued slots | Visible objects per registered single-valued predicate | `oncall_brain/health.py:_conflicts` |
+| Health replacements (reuse) | Shared superseded_targets query | `oncall_brain/health.py:_superseded_list`, `kb_health` |
+| Impact module list | Module ids/names ordered by id | `oncall_brain/impact.py:get_all_modules` |
+| Impact module lookup | Exact id, then case-insensitive id fallback | `oncall_brain/impact.py:module_impact` |
+| Impact owners | Reverse TECH_LEAD_OF | `oncall_brain/impact.py:module_impact` |
+| Impact teams | Owner's MEMBER_OF edges | `oncall_brain/impact.py:module_impact` |
+| Impact resources | Module HAS_RESOURCE edges | `oncall_brain/impact.py:module_impact` |
+| Impact rules | Reverse APPLIES_TO | `oncall_brain/impact.py:module_impact` |
+| Impact tickets | Reverse ABOUT, plus shared expertise/evidence queries | `oncall_brain/impact.py:module_impact` |
+| Impact territories | Territory catalogue to reconcile ticket-text names | `oncall_brain/impact.py:module_impact` |
+| Impact territory contacts | Reverse COVERS_TERRITORY | `oncall_brain/impact.py:module_impact` |
+| Procedure members | HAS_STEP, optionally filtered by procedure id | `oncall_brain/sequence.py:_members` |
+| Procedure ordering | PRECEDES / PARALLEL_WITH between member ids | `oncall_brain/sequence.py:_ordering` |
+| Procedure root | Validate procedure id/kind and read name | `oncall_brain/sequence.py:procedure_steps` |
+| Procedure metadata | GOVERNED_BY / USES_RESOURCE / PERFORMED_BY / REQUIRES_FIELD | `oncall_brain/sequence.py:procedure_steps` |
+| Demo target validation | Existing Rule/Notice kind | `oncall_brain/freshness.py:add_notice` |
+| Demo duplicate ids | Notice/evidence id collision check | `oncall_brain/freshness.py:add_notice` |
+| Demo authority | Authority of an existing approved superseding notice | `oncall_brain/freshness.py:add_notice` |
+| Demo inherited context | Visible neighbours along SUPERSEDES chains | `oncall_brain/freshness.py:add_notice` |
+| Demo atomic insertion | MATCH old/context; CREATE Notice, Evidence, SUPERSEDES and scope edges | `oncall_brain/freshness.py:add_notice` |
+| Demo copy / reset (graph commands) | GRAPH.COPY / GRAPH.DELETE, not Cypher | `oncall_brain/freshness.py:clone_demo_graph`, `reset_demo` |
+| Ingest indexes | Fulltext indexes on Entity name/id | `oncall_brain/db.py:ensure_indexes` |
+| Ingest entity / evidence upsert | MERGE nodes and set properties | `oncall_brain/db.py:node`, `evidence_node` |
+| Ingest assertion upsert | MERGE endpoints and relation by aid; set assertion properties | `oncall_brain/db.py:edge` |
+| Candidate approval | SET candidate state to approved, all or per predicate | `oncall_brain/db.py:approve_all`, `approve_predicate` |
+| Graph statistics | Entity/evidence/assertion counts and predicate/source distribution | `oncall_brain/db.py:stats` |
+| Evaluation graph fingerprint | Ordered relationship/property read for provenance hash | `eval/run_gold.py:main` |
 
-## Tools
+### Three key queries, copied from the source query strings
+
+These are the exact assembled Cypher strings, preserving source concatenation
+and whitespace, with the shared visibility constant expanded. Parameters remain
+parameters; no model-authored rewrite or illustrative predicates are substituted.
+
+Ticket-to-module-to-handler join - `oncall_brain/tools.py:module_expertise`
+
+```cypher
+MATCH (k:Entity)-[a:ABOUT]->(m:Entity {id: $id}), (k)-[h:HANDLED_BY]->(p:Entity) WHERE a.state = 'approved' AND a.valid_from <= $now AND (a.valid_to IS NULL OR a.valid_to > $now) AND h.state = 'approved' AND h.valid_from <= $now AND (h.valid_to IS NULL OR h.valid_to > $now) RETURN k.id, k.kind, k.name, m.kind, m.name, p.id, p.kind, p.name, a.aid, a.authority, a.evidence, h.aid, h.authority, h.evidence
+```
+
+Current replacement edges - `oncall_brain/tools.py:TEMPLATES["superseded_targets"]`
+
+```cypher
+MATCH (n)-[r:SUPERSEDES]->(o) WHERE r.state = 'approved' AND r.valid_from <= $now AND (r.valid_to IS NULL OR r.valid_to > $now) RETURN o.id, n.id, r.aid, r.valid_from
+```
+
+Procedure order constraints - `oncall_brain/sequence.py:_ordering`
+
+```cypher
+MATCH (a:Entity)-[r]->(b:Entity) WHERE type(r) IN ['PRECEDES', 'PARALLEL_WITH'] AND r.state = 'approved' AND r.valid_from <= $now AND (r.valid_to IS NULL OR r.valid_to > $now) AND a.id IN $ids AND b.id IN $ids RETURN a.id, b.id, type(r), r.aid, r.evidence
+```
+
+## Tools and ingest contract
 
 | Tool | Input | Output |
 |---|---|---|
-| `describe_ontology` | — | entity kinds, predicate semantics, authority levels, behaviour rules, budget |
-| `search_knowledge` | `query`, `kind?`, `limit?` | candidate ids; `not_found` when nothing matches |
-| `read_knowledge` | `id`, `context?` | properties + all visible assertions with aid, authority, evidence, applicability |
-| `query_relations` | `start_id`, `predicates[]`, `direction?`, `max_hops≤3`, `context?` | paths, conflicts, evidence, truncation flag |
+| `describe_ontology` | None | Kinds, predicate semantics, authority levels, behaviour rules, budgets |
+| `search_knowledge` | `query`, optional `kind`, `limit` | Candidate ids and matching source evidence |
+| `read_knowledge` | `id`, optional `context` | Entity, visible assertions, evidence, applicability, replacements |
+| `query_relations` | `start_id`, `predicates`, optional direction/context, max 3 hops | Paths, evidence, conflicts, truncation |
+| `module_expertise` | `module_id`, optional `limit` | Owners, ranked handlers, ticket paths, evidence |
 
-Budget: ≤8 tool calls and ≤6 relation queries per question. IDs may only come
-from tool results. The same four tools are exposed over MCP stdio
-(`python cli.py mcp`) and used by the CLI and the agent.
+Deep-mode budget: at most 8 tool calls and 6 relation queries per question.
+Ids come from tool results. Retrieved source lines and nearby thread context
+help preserve enumerations, exceptions, and penalties. Answers begin with a
+short cited conclusion, followed by basis, common practice, conflicts/replacements,
+and gaps; citations pair assertion ids with `file:line`.
 
-Before the tool loop the agent also receives the source lines that share the most
-informative (IDF-weighted) words with the question, so official passages the model
-would not think to search for are in view; this lookup does not count against the
-budget. `read_knowledge` returns the lines that follow each evidence line in the
-same thread, where enumerations and penalties usually sit.
-
-Answers follow a fixed shape: **Next step → Basis (each claim citing
-`[aid → file:line]`) → Actual common practice → Conflicts / Superseded → Gaps**.
-
-## Ingest
-
-```
-corpus/ → slices → LLM-proposes assertions (registered predicates only)
-       → validate (predicate / domain / range / evidence line / entity id)
-       → state=candidate → approve → visible
-```
-
-Structured sources (`org/*`, `tickets/*`, `docs/08-*`) are parsed
-deterministically without an LLM. Chat-derived assertions default to
-`observation`; only ones announced as policy become `practice`. Chat assertions
-never auto-promote to `formal_rule`. Every assertion cites `file:line` and the
-line must really contain the quoted text or it lands in `ingest/rejected.jsonl`.
-LLM slice results are cached by content hash, so reruns make no repeat calls.
+Structured organisation/ticket sources and the module registry are parsed
+without an LLM. Free-text documents and chats go through LLM proposal, registered
+predicate/domain/range and evidence validation, entity alignment, and semantic
+slot annotation. Accepted assertions start as candidates. Chat claims default
+to observation; announced policy can be practice, never automatically formal_rule.
+Every quoted evidence line must match the source or the assertion is rejected.
+Caches avoid matching extraction requests; they do not eliminate first-run
+provider calls or guarantee identical output after a rebuild with another model.
 
 ## Evaluation
 
-`python eval/run_gold.py` runs the 17 gold-card questions in `docs/02-答案卡.md`
-(card text in Chinese, questions in English)
-against the live graph and writes `eval/results/latest.md`. Each entry records the
-real tool sequence with arguments, the Cypher templates executed, the verbatim
-answer, the citations it emitted, and PASS/FAIL against that card's own expected
-state, point list and forbidden errors.
+After full ingest and approval, run:
 
-A committed snapshot of the latest full run is in `eval/snapshot/latest.md`;
-regenerate it with the command above. Judging is done by an LLM against each
-card, so single runs vary by a question or two; set `LLM_JUDGE_MODEL` to judge
-with a model other than the one answering.
+```bash
+python eval/run_gold.py
+# Optional: reuse available answers and run judging again
+python eval/run_gold.py --judge-only
+```
+
+The runner parses 17 gold cards from `docs/02-答案卡.md` (Chinese card text,
+English questions), calls the **deep** agent on the configured live graph,
+and grades expected state, required points, cited evidence, and forbidden errors.
+This is not a fast-mode benchmark. Both answering and judging call the provider;
+`LLM_JUDGE_MODEL` overrides the judge, otherwise it uses `LLM_MODEL`.
+`--judge-only` still generates answers for cards missing from its answer cache.
+
+Outputs: `eval/results/latest.md`, timestamped Markdown and JSON reports,
+`answers_cache.json`, and a judge cache. Reports include tool arguments, executed
+template names, answers, citations, PASS/FAIL, and provenance (commit, graph/model,
+and fingerprints). Existing `eval/snapshot/` files are historical runs, not the
+frozen-build result. LLM judging can vary; rerun commands to obtain measurements
+for your configured graph and models.
+
+Final eval (frozen build): <TBD by lead>
 
 ## FalkorDB notes
 
@@ -194,9 +513,27 @@ Two behaviours of the FalkorDB build this was developed against shaped the code:
   silently. Each edge now merges its own endpoints first, so payload ordering
   cannot drop assertions.
 
-## Disclosure
+## Disclosure - Rule 11
 
-All company data is fictional. AI coding assistants (Claude Code and OpenAI Codex)
-were used to write much of this code under the author's design and review; every
-reported metric comes from running the commands above rather than from an
+All company data is fictional AetherPulse material. AI assistance used during
+development is disclosed separately from runtime inference:
+
+| Development assistant / model | Contribution |
+|---|---|
+| Claude Code - Anthropic Claude | Lead implementation, review, and fixes |
+| OpenAI Codex - GPT | Features and documentation |
+| Google Antigravity CLI - Gemini | Frontend pages |
+| Hunyuan `hy4-preview`, driven through Claude Code | Backend KB health and conflict fix |
+
+Runtime accepts **any OpenAI-compatible tool-calling model** meeting the ingest
+JSON/options requirements above; development used `gemini-3.8-flash-high`
+(recorded in the committed evaluation snapshots and as the ingest fallback).
+`LLM_MODEL`, `LLM_BASE_URL`, and `LLM_API_KEY` configure the main endpoint;
+`FAST_MODEL` optionally overrides fast compose/translation, and
+`LLM_JUDGE_MODEL` optionally overrides judging. The deep agent requires an
+explicit `LLM_MODEL`; the ingest fallback is not a universal runtime default.
+Optional selection uses TypeSafe Jev `jev-latest` via `TYPESAFE_API_KEY` and
+falls back to search ranking when unavailable.
+
+Every metric comes from running the commands above rather than from an
 assistant's claims.
