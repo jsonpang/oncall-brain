@@ -116,6 +116,19 @@ def examples():
                      "expected_status": q["expected_status"]} for q in parse_gold()])
 
 
+@app.get("/health")
+def health_page():
+    return app.send_static_file("health.html")
+
+
+@app.get("/api/health")
+@available
+def health():
+    """Knowledge-base health check: read-only counts, single points, conflicts."""
+    from oncall_brain.health import kb_health
+    return jsonify(kb_health())
+
+
 @app.get("/api/ontology")
 @available
 def ontology():

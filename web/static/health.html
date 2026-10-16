@@ -1,0 +1,1320 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23101419'/><g stroke='%23ff939e' stroke-width='4' stroke-linecap='round'><line x1='20' y1='32' x2='44' y2='32'/><line x1='32' y1='20' x2='32' y2='44'/></g><circle cx='32' cy='32' r='20' fill='none' stroke='%2379dfb2' stroke-width='4'/></svg>">
+  <title>知识库体检 · OnCall Brain</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101419;
+      --panel: #181e26;
+      --line: #303b48;
+      --text: #e5edf7;
+      --muted: #a2afbf;
+      --mint: #79dfb2;
+      --blue: #8abaff;
+      --amber: #f5c56c;
+      --red: #ff939e;
+
+      --card-bg: #131922;
+      --card-border: #283444;
+      --btn-bg: #253140;
+      --chip-bg: #1d2633;
+      --code-bg: #0d1217;
+      --alert-bg: rgba(255, 147, 158, 0.1);
+      --alert-border: #ff939e;
+      --ok-bg: rgba(121, 223, 178, 0.08);
+      --ok-border: rgba(121, 223, 178, 0.35);
+      --warn-bg: rgba(245, 197, 108, 0.1);
+      --warn-border: rgba(245, 197, 108, 0.35);
+    }
+
+
+    * { box-sizing: border-box; }
+    html, body {
+      overflow-x: hidden;
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.55 system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+      word-break: break-all;
+    }
+
+    button {
+      cursor: pointer;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 7px 12px;
+      background: var(--btn-bg);
+      color: var(--text);
+      font: inherit;
+      transition: border-color .15s ease, background .15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button:hover { border-color: var(--mint); }
+    button:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+
+    header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .brand-link {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      text-decoration: none;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .brand-link .brand { color: var(--mint); font-size: 18px; }
+    .brand-group .divider { color: var(--line); font-size: 16px; }
+    h1 {
+      font-size: 18px;
+      margin: 0;
+      letter-spacing: -0.3px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .headright {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .back-btn {
+      text-decoration: none;
+      color: var(--text);
+      border: 1px solid var(--line);
+      background: var(--btn-bg);
+      padding: 6px 12px;
+      border-radius: 7px;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: border-color .15s ease, color .15s ease;
+    }
+    .back-btn:hover {
+      border-color: var(--mint);
+      color: var(--mint);
+    }
+
+    .lang {
+      display: flex;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      overflow: hidden;
+    }
+    .lang button {
+      border: 0;
+      border-radius: 0;
+      padding: 5px 11px;
+      font-size: 12px;
+      background: transparent;
+      color: var(--muted);
+    }
+    .lang button.on {
+      background: var(--mint);
+      color: #10261b;
+      font-weight: 650;
+    }
+
+    .mode-pill {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 5px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      background: var(--card-bg);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .mode-pill.mock {
+      border-color: var(--amber);
+      color: var(--amber);
+      background: var(--warn-bg);
+    }
+
+    .page-container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 20px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Notice / Error banner */
+    .banner {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px 18px;
+      background: var(--panel);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 13px;
+    }
+    .banner.error {
+      border-color: var(--red);
+      background: var(--alert-bg);
+      color: var(--red);
+    }
+
+    /* Totals section */
+    .totals-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .total-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: transform .15s ease, border-color .15s ease;
+    }
+    .total-card:hover {
+      border-color: var(--mint);
+    }
+    .total-num {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      line-height: 1.1;
+      color: var(--mint);
+      font-variant-numeric: tabular-nums;
+    }
+    .total-label {
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .meta-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: -8px;
+      padding: 0 4px;
+    }
+
+    /* Risk Section */
+    .risk-section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .risk-header {
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 14px;
+    }
+    .risk-title-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .risk-title-line h2 {
+      font-size: 16px;
+      margin: 0;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .risk-desc {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid currentColor;
+      white-space: nowrap;
+    }
+    .badge-count {
+      background: var(--chip-bg);
+      border-color: var(--line);
+      color: var(--text);
+    }
+    .badge-alert {
+      color: var(--red);
+      background: var(--alert-bg);
+      border-color: var(--red);
+    }
+    .badge-warn {
+      color: var(--amber);
+      background: var(--warn-bg);
+      border-color: var(--amber);
+    }
+    .badge-ok {
+      color: var(--mint);
+      background: var(--ok-bg);
+      border-color: var(--mint);
+    }
+    .badge-void {
+      color: var(--muted);
+      background: var(--chip-bg);
+      border-color: var(--muted);
+      text-decoration: line-through;
+    }
+    .badge-active {
+      color: var(--blue);
+      background: rgba(138, 186, 255, 0.1);
+      border-color: var(--blue);
+    }
+
+    /* Empty state */
+    .empty {
+      border: 1px dashed var(--line);
+      padding: 26px 20px;
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+      background: var(--card-bg);
+    }
+
+    /* Item Cards */
+    .items-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 12px;
+    }
+    .items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Section 1: Single points */
+    .sp-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .sp-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .sp-person {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sp-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .mod-chip {
+      background: var(--chip-bg);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .mod-chip code {
+      color: var(--blue);
+      font-size: 11px;
+    }
+
+    /* Section 2: Owner vs Handlers */
+    .oh-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: border-color .15s ease;
+    }
+    /* Highlight for owner_handled = false */
+    .oh-card.highlight-danger {
+      border: 1px solid var(--alert-border);
+      background: var(--alert-bg);
+      box-shadow: 0 0 0 1px rgba(255, 147, 158, 0.2);
+    }
+    .oh-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .oh-mod-name {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .oh-mod-name code {
+      color: var(--blue);
+      background: var(--code-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+    }
+    .oh-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 12px;
+      flex-wrap: wrap;
+    }
+    .oh-row-label {
+      color: var(--muted);
+      min-width: 90px;
+      padding-top: 2px;
+    }
+    .oh-row-val {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      flex: 1;
+    }
+    .person-chip {
+      background: var(--chip-bg);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 2px 7px;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .person-chip.is-owner {
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+    .person-chip .count {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    /* Section 3: Chat only rules */
+    .cr-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .cr-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .cr-head code {
+      color: var(--amber);
+      background: var(--code-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+    }
+    .cr-name {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .sources-box {
+      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .source-item {
+      font-size: 11px;
+      color: var(--amber);
+      background: var(--code-bg);
+      border: 1px dashed var(--line);
+      border-radius: 5px;
+      padding: 4px 8px;
+      overflow-wrap: anywhere;
+      word-break: break-all;
+    }
+
+    /* Section 4: Conflicts */
+    .cf-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .cf-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 13px;
+    }
+    .cf-head code {
+      color: var(--blue);
+      background: var(--code-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+    }
+    .pred-pill {
+      color: var(--mint);
+      border: 1px solid var(--line);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      background: var(--chip-bg);
+    }
+    .cf-values {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .cf-val-item {
+      background: var(--alert-bg);
+      border: 1px solid var(--alert-border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 13px;
+      color: var(--red);
+      font-weight: 600;
+      flex: 1;
+      min-width: 140px;
+      overflow-wrap: anywhere;
+    }
+    .cf-vs {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      padding: 0 4px;
+    }
+
+    /* Section 5: Superseded */
+    .ss-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .ss-flow {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      flex: 1;
+    }
+    .ss-rule {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ss-rule code {
+      background: var(--code-bg);
+      padding: 3px 7px;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+    }
+    .ss-arrow {
+      color: var(--muted);
+      font-size: 16px;
+    }
+    .ss-date {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      header { padding: 14px 16px; }
+      .page-container { padding: 16px 12px 36px; gap: 18px; }
+      .totals-grid { grid-template-columns: 1fr; }
+      .items-grid { grid-template-columns: 1fr; }
+      .risk-section { padding: 16px; }
+      .cf-values { flex-direction: column; align-items: stretch; }
+      .cf-vs { text-align: center; }
+      .ss-card { flex-direction: column; align-items: flex-start; gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand-group">
+    <a href="/" class="brand-link" title="OnCall Brain">
+      <span class="brand">◈</span>
+      <span>OnCall Brain</span>
+    </a>
+    <span class="divider">/</span>
+    <h1 id="page-heading">知识库体检</h1>
+  </div>
+  <div class="headright">
+    <span id="mode-badge" class="mode-pill" style="display:none;"></span>
+    <a href="/" class="back-btn" id="back-link">
+      <span>←</span>
+      <span id="back-text">返回问答</span>
+    </a>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="zh">中文</button>
+      <button type="button" data-lang="en">EN</button>
+    </div>
+  </div>
+</header>
+
+<main class="page-container">
+
+  <!-- Status / Fetch Alert banner (hidden by default) -->
+  <div id="status-banner" class="banner" style="display:none;"></div>
+
+  <!-- Totals Section -->
+  <div class="totals-grid">
+    <div class="total-card">
+      <div class="total-label" id="lbl-tot-entities">实体总数</div>
+      <div class="total-num" id="tot-entities">0</div>
+    </div>
+    <div class="total-card">
+      <div class="total-label" id="lbl-tot-assertions">断言 / 关系数</div>
+      <div class="total-num" id="tot-assertions">0</div>
+    </div>
+    <div class="total-card">
+      <div class="total-label" id="lbl-tot-tickets">关联工单数</div>
+      <div class="total-num" id="tot-tickets">0</div>
+    </div>
+  </div>
+
+  <div class="meta-bar">
+    <span id="gen-time">生成时间: -</span>
+    <span id="summary-stat"></span>
+  </div>
+
+  <!-- 1. 单点风险 (single_points) -->
+  <section class="risk-section" id="sec-single-points">
+    <div class="risk-header">
+      <div class="risk-title-line">
+        <h2>
+          <span id="title-sp">1. 单点风险</span>
+          <span class="badge badge-count" id="badge-sp">0</span>
+        </h2>
+      </div>
+      <p class="risk-desc" id="why-sp">某人一个人负责多个模块，请假就没人兜底。</p>
+    </div>
+    <div id="content-sp"></div>
+  </section>
+
+  <!-- 2. 负责人 vs 实际处理人 (owner_vs_handlers) -->
+  <section class="risk-section" id="sec-owner-handlers">
+    <div class="risk-header">
+      <div class="risk-title-line">
+        <h2>
+          <span id="title-oh">2. 负责人 vs 实际处理人</span>
+          <span class="badge badge-count" id="badge-oh">0</span>
+        </h2>
+      </div>
+      <p class="risk-desc" id="why-oh">名义负责人不一定最熟悉现网，若负责人从未实际处理过工单（owner_handled=false），可能存在沟通断层或权责脱节。</p>
+    </div>
+    <div id="content-oh"></div>
+  </section>
+
+  <!-- 3. 只有聊天记录支撑的规则 (chat_only_rules) -->
+  <section class="risk-section" id="sec-chat-rules">
+    <div class="risk-header">
+      <div class="risk-title-line">
+        <h2>
+          <span id="title-cr">3. 只有聊天记录支撑的规则</span>
+          <span class="badge badge-count" id="badge-cr">0</span>
+        </h2>
+      </div>
+      <p class="risk-desc" id="why-cr">规则所有依据均来自聊天记录，没有正式文档支撑，容易出现口头约定过时或理解偏差。</p>
+    </div>
+    <div id="content-cr"></div>
+  </section>
+
+  <!-- 4. 说法冲突 (conflicts) -->
+  <section class="risk-section" id="sec-conflicts">
+    <div class="risk-header">
+      <div class="risk-title-line">
+        <h2>
+          <span id="title-cf">4. 说法冲突</span>
+          <span class="badge badge-count" id="badge-cf">0</span>
+        </h2>
+      </div>
+      <p class="risk-desc" id="why-cf">单值关系上同一主体出现多个互斥值，导致运维执行时无所适从、决策歧义或产生误操作。</p>
+    </div>
+    <div id="content-cf"></div>
+  </section>
+
+  <!-- 5. 已被替代的旧规则 (superseded) -->
+  <section class="risk-section" id="sec-superseded">
+    <div class="risk-header">
+      <div class="risk-title-line">
+        <h2>
+          <span id="title-ss">5. 已被替代的旧规则</span>
+          <span class="badge badge-count" id="badge-ss">0</span>
+        </h2>
+      </div>
+      <p class="risk-desc" id="why-ss">旧规则已被新规则废止，若仍残留在认知中，容易误导值班人员执行已作废的旧流程。</p>
+    </div>
+    <div id="content-ss"></div>
+  </section>
+
+</main>
+
+<script>
+'use strict';
+
+/**
+ * Built-in mock data conforming to /api/health schema
+ */
+const MOCK_DATA = {
+  "generated_at": "2026-10-16T20:30:00Z",
+  "totals": {
+    "entities": 142,
+    "assertions": 389,
+    "tickets": 87
+  },
+  "single_points": [
+    {
+      "person": "Zhang San",
+      "modules": [
+        {"id": "MOD-01", "name": "Payment Gateway"},
+        {"id": "MOD-04", "name": "Billing Engine"},
+        {"id": "MOD-07", "name": "Invoice Dispatcher"}
+      ],
+      "count": 3
+    },
+    {
+      "person": "Li Si",
+      "modules": [
+        {"id": "MOD-02", "name": "Auth Service"},
+        {"id": "MOD-05", "name": "Token Manager"}
+      ],
+      "count": 2
+    }
+  ],
+  "owner_vs_handlers": [
+    {
+      "module_id": "MOD-01",
+      "module_name": "Payment Gateway",
+      "owners": ["Zhang San"],
+      "handlers": [
+        {"name": "Wang Wu", "count": 15},
+        {"name": "Zhao Liu", "count": 8}
+      ],
+      "owner_handled": false
+    },
+    {
+      "module_id": "MOD-02",
+      "module_name": "Auth Service",
+      "owners": ["Li Si"],
+      "handlers": [
+        {"name": "Li Si", "count": 12},
+        {"name": "Sun Qi", "count": 3}
+      ],
+      "owner_handled": true
+    },
+    {
+      "module_id": "MOD-04",
+      "module_name": "Billing Engine",
+      "owners": ["Zhang San"],
+      "handlers": [
+        {"name": "Qian Ba", "count": 6}
+      ],
+      "owner_handled": false
+    }
+  ],
+  "chat_only_rules": [
+    {
+      "id": "Rule:refund_auto_approve",
+      "name": "Small Refund Auto-Approval Threshold (< $50)",
+      "sources": [
+        "corpus/chats/payment_incident_202604.md:45",
+        "corpus/chats/ops_weekly_202605.md:18"
+      ]
+    },
+    {
+      "id": "Notice:kafka_partition_scaling",
+      "name": "Kafka Temporary Manual Rebalance Notice",
+      "sources": [
+        "corpus/chats/infra_hotfix_202607.md:112"
+      ]
+    }
+  ],
+  "conflicts": [
+    {
+      "subject": "MOD-03:NotificationGateway",
+      "predicate": "TECH_LEAD_OF",
+      "values": ["Chen Jiu", "Zhou Shi"]
+    },
+    {
+      "subject": "Rule:deploy_freeze_window",
+      "predicate": "EFFECTIVE_WINDOW",
+      "values": [
+        "Friday 18:00 - Monday 09:00",
+        "Thursday 20:00 - Monday 09:00"
+      ]
+    }
+  ],
+  "superseded": [
+    {
+      "old": "Rule:legacy_auth_v1_failover",
+      "new": "Rule:oauth2_federated_failover",
+      "effective": "2026-03-01"
+    },
+    {
+      "old": "Notice:mysql_read_pool_b",
+      "new": "Notice:aurora_global_reader",
+      "effective": "2026-08-15"
+    }
+  ]
+};
+
+const I18N = {
+  zh: {
+    page_title: '知识库体检 · OnCall Brain',
+    heading: '知识库体检',
+    back: '返回问答',
+    mode_mock: 'Mock 预览模式',
+    mode_live: '实时数据',
+    tot_entities: '实体总数',
+    tot_assertions: '断言 / 关系数',
+    tot_tickets: '关联工单数',
+    gen_at: '生成时间: {t}',
+    gen_at_empty: '生成时间: 未知',
+
+    sec1_title: '1. 单点风险',
+    sec1_why: '某人一个人负责多个模块，请假就没人兜底。',
+    sp_modules_count: '负责 {n} 个模块',
+
+    sec2_title: '2. 负责人 vs 实际处理人',
+    sec2_why: '名义负责人不一定最熟悉现网，若负责人从未实际处理过工单（owner_handled=false），可能存在沟通断层或权责脱节。',
+    badge_owner_handled: '✓ 负责人已参与处理',
+    badge_owner_not_handled: '⚠️ 负责人从未处理过工单',
+    lbl_owners: '名义负责人',
+    lbl_handlers: '实际处理工单人',
+    no_handlers: '无工单处理记录',
+    ticket_count: '{n} 单',
+
+    sec3_title: '3. 只有聊天记录支撑的规则',
+    sec3_why: '规则所有依据均来自聊天记录，没有正式文档支撑，容易出现口头约定过时或理解偏差。',
+    badge_chat_only: '仅聊天记录支撑',
+    lbl_sources: '聊天记录出处',
+
+    sec4_title: '4. 说法冲突',
+    sec4_why: '单值关系上同一主体出现多个互斥值，导致运维执行时无所适从、决策歧义或产生误操作。',
+    lbl_subject: '冲突主体',
+    lbl_predicate: '关系',
+
+    sec5_title: '5. 已被替代的旧规则',
+    sec5_why: '旧规则已被新规则废止，若仍残留在认知中，容易误导值班人员执行已作废的旧流程。',
+    badge_void: '已废弃',
+    badge_active: '新生效',
+    lbl_effective: '替代生效日: {d}',
+
+    empty: '未发现',
+    fetch_failed: '无法连接 /api/health（后端可能尚在开发中）。',
+    switch_to_mock: '切换到 Mock 数据预览'
+  },
+  en: {
+    page_title: 'Knowledge Base Health · OnCall Brain',
+    heading: 'Knowledge Base Health',
+    back: 'Back to Q&A',
+    mode_mock: 'Mock Preview Mode',
+    mode_live: 'Live API',
+    tot_entities: 'Total Entities',
+    tot_assertions: 'Total Assertions',
+    tot_tickets: 'Total Tickets',
+    gen_at: 'Generated at: {t}',
+    gen_at_empty: 'Generated at: unknown',
+
+    sec1_title: '1. Single Point of Failure',
+    sec1_why: 'One person leads multiple modules; risk of no backup if unavailable.',
+    sp_modules_count: 'Leads {n} modules',
+
+    sec2_title: '2. Owners vs Actual Handlers',
+    sec2_why: 'Nominal owners may not know live systems best; highlighted when the owner has never handled tickets (owner_handled=false).',
+    badge_owner_handled: '✓ Owner has handled tickets',
+    badge_owner_not_handled: '⚠️ Owner never handled tickets',
+    lbl_owners: 'Nominal Owner(s)',
+    lbl_handlers: 'Actual Handlers',
+    no_handlers: 'No ticket records',
+    ticket_count: '{n} tickets',
+
+    sec3_title: '3. Chat-Only Rules',
+    sec3_why: 'Rules supported only by chat records without formal documentation; prone to outdated consensus or misunderstandings.',
+    badge_chat_only: 'Chat only',
+    lbl_sources: 'Chat Sources',
+
+    sec4_title: '4. Conflicting Claims',
+    sec4_why: 'Multiple conflicting values exist for a single-valued relation on the same entity, causing operational ambiguity.',
+    lbl_subject: 'Subject',
+    lbl_predicate: 'Predicate',
+
+    sec5_title: '5. Superseded Rules',
+    sec5_why: 'Old rules superseded by new notices; lingering references risk misleading engineers into executing obsolete procedures.',
+    badge_void: 'Void',
+    badge_active: 'Active',
+    lbl_effective: 'Effective: {d}',
+
+    empty: 'None found',
+    fetch_failed: 'Could not connect to /api/health (backend may be under development).',
+    switch_to_mock: 'View with Mock Data'
+  }
+};
+
+let currentLang = 'zh';
+try {
+  const saved = localStorage.getItem('oncall-lang');
+  if (saved === 'en' || saved === 'zh') currentLang = saved;
+} catch (e) {
+  console.warn('localStorage read error:', e);
+}
+
+let activeData = null;
+let isMockActive = false;
+
+function t(key, vars = {}) {
+  const dict = I18N[currentLang] || I18N.zh;
+  let text = dict[key] ?? I18N.en[key] ?? key;
+  for (const [k, v] of Object.entries(vars)) {
+    text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+  }
+  return text;
+}
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function setLanguage(lang) {
+  currentLang = lang;
+  try {
+    localStorage.setItem('oncall-lang', lang);
+  } catch (e) {
+    console.warn('localStorage write error:', e);
+  }
+  document.querySelectorAll('.lang button').forEach(btn => {
+    btn.classList.toggle('on', btn.dataset.lang === lang);
+  });
+  render();
+}
+
+function formatDate(isoStr) {
+  if (!isoStr) return t('gen_at_empty');
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return t('gen_at', { t: escapeHtml(isoStr) });
+    return t('gen_at', { t: d.toLocaleString(currentLang === 'zh' ? 'zh-CN' : 'en-US', { hour12: false }) });
+  } catch {
+    return t('gen_at', { t: escapeHtml(isoStr) });
+  }
+}
+
+function render() {
+  document.title = t('page_title');
+  document.documentElement.lang = currentLang;
+  document.getElementById('page-heading').textContent = t('heading');
+  document.getElementById('back-text').textContent = t('back');
+
+  // Labels
+  document.getElementById('lbl-tot-entities').textContent = t('tot_entities');
+  document.getElementById('lbl-tot-assertions').textContent = t('tot_assertions');
+  document.getElementById('lbl-tot-tickets').textContent = t('tot_tickets');
+
+  document.getElementById('title-sp').textContent = t('sec1_title');
+  document.getElementById('why-sp').textContent = t('sec1_why');
+
+  document.getElementById('title-oh').textContent = t('sec2_title');
+  document.getElementById('why-oh').textContent = t('sec2_why');
+
+  document.getElementById('title-cr').textContent = t('sec3_title');
+  document.getElementById('why-cr').textContent = t('sec3_why');
+
+  document.getElementById('title-cf').textContent = t('sec4_title');
+  document.getElementById('why-cf').textContent = t('sec4_why');
+
+  document.getElementById('title-ss').textContent = t('sec5_title');
+  document.getElementById('why-ss').textContent = t('sec5_why');
+
+  // Mode badge
+  const modeBadge = document.getElementById('mode-badge');
+  if (isMockActive) {
+    modeBadge.textContent = t('mode_mock');
+    modeBadge.className = 'mode-pill mock';
+    modeBadge.style.display = 'inline-flex';
+  } else {
+    modeBadge.textContent = t('mode_live');
+    modeBadge.className = 'mode-pill';
+    modeBadge.style.display = 'inline-flex';
+  }
+
+  if (!activeData) return;
+
+  // Totals
+  const totals = activeData.totals || {};
+  document.getElementById('tot-entities').textContent = (totals.entities ?? 0).toLocaleString();
+  document.getElementById('tot-assertions').textContent = (totals.assertions ?? 0).toLocaleString();
+  document.getElementById('tot-tickets').textContent = (totals.tickets ?? 0).toLocaleString();
+
+  // Generated at
+  document.getElementById('gen-time').textContent = formatDate(activeData.generated_at);
+
+  // 1. Single points
+  renderSinglePoints(activeData.single_points || []);
+
+  // 2. Owner vs Handlers
+  renderOwnerVsHandlers(activeData.owner_vs_handlers || []);
+
+  // 3. Chat only rules
+  renderChatOnlyRules(activeData.chat_only_rules || []);
+
+  // 4. Conflicts
+  renderConflicts(activeData.conflicts || []);
+
+  // 5. Superseded
+  renderSuperseded(activeData.superseded || []);
+}
+
+function renderSinglePoints(list) {
+  const container = document.getElementById('content-sp');
+  const badge = document.getElementById('badge-sp');
+  badge.textContent = list.length;
+
+  if (!list.length) {
+    container.innerHTML = `<div class="empty">${escapeHtml(t('empty'))}</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="items-grid">
+      ${list.map(item => `
+        <div class="sp-card">
+          <div class="sp-head">
+            <div class="sp-person">
+              <span>👤</span>
+              <span>${escapeHtml(item.person)}</span>
+            </div>
+            <span class="badge badge-warn">${escapeHtml(t('sp_modules_count', { n: item.count || (item.modules ? item.modules.length : 0) }))}</span>
+          </div>
+          <div class="sp-chips">
+            ${(item.modules || []).map(m => `
+              <span class="mod-chip">
+                <code>${escapeHtml(m.id)}</code>
+                <span>${escapeHtml(m.name)}</span>
+              </span>
+            `).join('')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderOwnerVsHandlers(list) {
+  const container = document.getElementById('content-oh');
+  const badge = document.getElementById('badge-oh');
+  badge.textContent = list.length;
+
+  if (!list.length) {
+    container.innerHTML = `<div class="empty">${escapeHtml(t('empty'))}</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="items-list">
+      ${list.map(item => {
+        const isNotHandled = item.owner_handled === false;
+        return `
+          <div class="oh-card ${isNotHandled ? 'highlight-danger' : ''}">
+            <div class="oh-head">
+              <div class="oh-mod-name">
+                <code>${escapeHtml(item.module_id)}</code>
+                <span>${escapeHtml(item.module_name)}</span>
+              </div>
+              <div>
+                ${isNotHandled
+                  ? `<span class="badge badge-alert">${escapeHtml(t('badge_owner_not_handled'))}</span>`
+                  : `<span class="badge badge-ok">${escapeHtml(t('badge_owner_handled'))}</span>`
+                }
+              </div>
+            </div>
+            <div class="oh-row">
+              <span class="oh-row-label">${escapeHtml(t('lbl_owners'))}:</span>
+              <div class="oh-row-val">
+                ${(item.owners || []).map(o => `
+                  <span class="person-chip is-owner">
+                    <span>👑</span>
+                    <strong>${escapeHtml(o)}</strong>
+                  </span>
+                `).join('')}
+              </div>
+            </div>
+            <div class="oh-row">
+              <span class="oh-row-label">${escapeHtml(t('lbl_handlers'))}:</span>
+              <div class="oh-row-val">
+                ${(item.handlers && item.handlers.length)
+                  ? item.handlers.map(h => `
+                    <span class="person-chip">
+                      <span>${escapeHtml(h.name)}</span>
+                      <span class="count">${escapeHtml(t('ticket_count', { n: h.count }))}</span>
+                    </span>
+                  `).join('')
+                  : `<span style="color:var(--muted);">${escapeHtml(t('no_handlers'))}</span>`
+                }
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderChatOnlyRules(list) {
+  const container = document.getElementById('content-cr');
+  const badge = document.getElementById('badge-cr');
+  badge.textContent = list.length;
+
+  if (!list.length) {
+    container.innerHTML = `<div class="empty">${escapeHtml(t('empty'))}</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="items-list">
+      ${list.map(item => `
+        <div class="cr-card">
+          <div class="cr-head">
+            <span class="badge badge-warn">${escapeHtml(t('badge_chat_only'))}</span>
+            <code>${escapeHtml(item.id)}</code>
+            <span class="cr-name">${escapeHtml(item.name)}</span>
+          </div>
+          <div class="sources-box">
+            ${(item.sources || []).map(s => `
+              <div class="source-item">💬 ${escapeHtml(s)}</div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderConflicts(list) {
+  const container = document.getElementById('content-cf');
+  const badge = document.getElementById('badge-cf');
+  badge.textContent = list.length;
+
+  if (!list.length) {
+    container.innerHTML = `<div class="empty">${escapeHtml(t('empty'))}</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="items-list">
+      ${list.map(item => `
+        <div class="cf-card">
+          <div class="cf-head">
+            <span class="badge badge-alert">⚠️</span>
+            <span>${escapeHtml(t('lbl_subject'))}:</span>
+            <code>${escapeHtml(item.subject)}</code>
+            <span class="pred-pill">${escapeHtml(item.predicate)}</span>
+          </div>
+          <div class="cf-values">
+            ${(item.values || []).map((val, idx) => `
+              <div class="cf-val-item">
+                <div style="font-size:11px;color:var(--muted);margin-bottom:2px;">#${idx + 1}</div>
+                <div>${escapeHtml(val)}</div>
+              </div>
+            `).join('<div class="cf-vs">VS</div>')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderSuperseded(list) {
+  const container = document.getElementById('content-ss');
+  const badge = document.getElementById('badge-ss');
+  badge.textContent = list.length;
+
+  if (!list.length) {
+    container.innerHTML = `<div class="empty">${escapeHtml(t('empty'))}</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="items-list">
+      ${list.map(item => `
+        <div class="ss-card">
+          <div class="ss-flow">
+            <div class="ss-rule">
+              <span class="badge badge-void">${escapeHtml(t('badge_void'))}</span>
+              <code>${escapeHtml(item.old)}</code>
+            </div>
+            <span class="ss-arrow">➔</span>
+            <div class="ss-rule">
+              <span class="badge badge-active">${escapeHtml(t('badge_active'))}</span>
+              <code>${escapeHtml(item.new)}</code>
+            </div>
+          </div>
+          <div class="ss-date">
+            ${escapeHtml(t('lbl_effective', { d: item.effective || '-' }))}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function showBanner(message, isError = false, showMockBtn = false) {
+  const banner = document.getElementById('status-banner');
+  banner.className = isError ? 'banner error' : 'banner';
+  banner.innerHTML = `
+    <span>${escapeHtml(message)}</span>
+    ${showMockBtn ? `<button type="button" id="btn-use-mock">${escapeHtml(t('switch_to_mock'))}</button>` : ''}
+  `;
+  banner.style.display = 'flex';
+
+  if (showMockBtn) {
+    const btn = document.getElementById('btn-use-mock');
+    if (btn) {
+      btn.onclick = () => {
+        isMockActive = true;
+        activeData = MOCK_DATA;
+        banner.style.display = 'none';
+        render();
+      };
+    }
+  }
+}
+
+async function init() {
+  // Bind language buttons
+  document.querySelectorAll('.lang button').forEach(btn => {
+    btn.classList.toggle('on', btn.dataset.lang === currentLang);
+    btn.addEventListener('click', () => setLanguage(btn.dataset.lang));
+  });
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const forceMock = urlParams.get('mock') === '1';
+
+  if (forceMock) {
+    isMockActive = true;
+    activeData = MOCK_DATA;
+    render();
+    return;
+  }
+
+  // Attempt fetch from /api/health
+  try {
+    const resp = await fetch('/api/health');
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    isMockActive = false;
+    activeData = data;
+    render();
+  } catch (err) {
+    console.warn('API health fetch failed:', err);
+    // Provide seamless fallback option
+    isMockActive = false;
+    // Render with mock data immediately or prompt user
+    activeData = MOCK_DATA;
+    isMockActive = true;
+    render();
+    showBanner(t('fetch_failed'), true, false);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
