@@ -13,6 +13,7 @@
   .conclusion{border:1px solid var(--mint);background:#13261f;border-radius:10px;padding:14px 16px;margin:14px 0 6px}.conclusion h3{margin:0 0 6px;font-size:13px;letter-spacing:1px;color:var(--mint)}.conclusion p{margin:4px 0;font-size:16px;line-height:1.65;color:#fff}.cite-n{padding:0 5px;margin:0 1px;font-size:10px;line-height:16px;vertical-align:super;border-radius:4px}.glossary{margin:10px 0 4px;font-size:12px;color:var(--muted)}.glossary summary{cursor:pointer;color:var(--blue)}.glossary dt{color:var(--text);font-weight:650;margin-top:8px}.glossary dd{margin:2px 0 0 0;line-height:1.6}.status-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   #proof-list{margin:6px 0 14px}#proof-list h4{margin:4px 0 6px;font-size:13px;color:var(--mint)}.proof-row{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;margin:4px 0;padding:7px 10px;background:#13261f;border-color:#2c5a48;font-size:13px}.proof-cite{color:var(--mint);font-size:11px;white-space:nowrap}.trace-why,.trace-result{margin:6px 0;font-size:12px;line-height:1.6;color:var(--muted)}.trace-result{color:var(--text)}.trace-why b,.trace-result b{color:var(--text)}.trace-card details summary{cursor:pointer;font-size:11px;color:var(--blue);margin-top:6px}.trace-howto{font-size:12px;line-height:1.65;color:var(--muted);border-left:2px solid var(--blue);padding:4px 10px;margin:0 0 4px}
   .examples-box{margin:12px 0}.examples-box summary{cursor:pointer;font-size:12px;color:var(--blue);margin-bottom:8px}.examples{display:block;margin:0}.ex-group{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 8px}.ex-label{font-size:11px;color:var(--muted);width:100%;margin-top:2px}.ex-group button{font-size:12px;padding:5px 9px}
+  .proof-item{margin:6px 0 10px}.proof-sentence{margin:0 0 4px;font-size:13px;color:var(--text);line-height:1.55}.proof-textonly{margin:2px 0 0;font-size:12px;color:var(--amber);padding-left:10px;border-left:2px solid var(--amber)}
   </style>
 </head>
 <body>
@@ -45,7 +46,7 @@ const I18N = {
     all_evidence:'全部返回证据', budget:'工具预算用尽（{r}），请留意回答中的缺项。', no_trace:'没有返回查询记录。', nodes_summary:'{n} 个节点 · {e} 条关系 · 点击节点展开', truncated:'关系查询已截断为 50 条路径。',
     cdn_fail:'图组件加载失败，请检查网络后刷新；回答和引用仍可使用。', busy_deep:'深度模式：模型正在一步步决定查询，约 1 分钟…', busy_fast:'正在查图，然后组装回答…',
     done:'完成 · {mode} · {steps} 步 · {ev} 条证据', timing:' · 查图+决策 {g} 秒，组装 {c} 秒，共 {t} 秒', mode_fast:'快速模式', mode_deep:'深度模式', not_found_entity:'not_found · 没找到实体', onto_title:'本体 / 受控工具契约',
-    status_src:'状态来源：{s} · 证据：本题查询结果', assertions:'条关系', lg_cited:'答案引用的关系（证明路径）', conclusion:'结论', examples:'参考提问（17 题，点一下直接提问）', proves:'这张图证明了', raw:'原始参数与查询模板', trace_howto:'怎么用这份记录：答案看起来不对时，从上往下看是哪一步出了问题。候选里没有正确的实体，是搜索没搜到；候选里有但没被选中，是 Jev 判断错了；读到了但结论里没写，是大模型漏写了。每一步都能和左边结论里的出处对上。', why:'为什么', result:'结果', sec_next:'下一步怎么做', sec_basis:'依据', sec_practice:'实际常见做法', sec_conflict:'冲突 / 已替代', sec_gaps:'资料缺口', sec_searched:'查过什么', sec_missing:'缺少什么', status_label:'答案状态', glossary:'名词解释（看不懂点这里）', st_applicable:'可直接照做', st_superseded:'规则已被新通知替代', st_conflict:'说法冲突 / 问题前提不成立', st_insufficient_context:'缺条件，需要你补充', st_not_found:'资料里没有答案', st_stale:'信息可能过期', proof:'亮起的 {e} 条边就是答案引用的关系，其余为本题读过但未引用的上下文。', no_proof:'这次答案没有引用图上的关系，只引用了原文行。'},
+    status_src:'状态来源：{s} · 证据：本题查询结果', assertions:'条关系', lg_cited:'答案引用的关系（证明路径）', conclusion:'结论', examples:'参考提问（17 题，点一下直接提问）', proves:'结论的每一句，依据是什么', by_graph:'图上的关系', by_text:'只有原文支撑，图中没有对应关系', text_line:'原文', raw:'原始参数与查询模板', trace_howto:'怎么用这份记录：答案看起来不对时，从上往下看是哪一步出了问题。候选里没有正确的实体，是搜索没搜到；候选里有但没被选中，是 Jev 判断错了；读到了但结论里没写，是大模型漏写了。每一步都能和左边结论里的出处对上。', why:'为什么', result:'结果', sec_next:'下一步怎么做', sec_basis:'依据', sec_practice:'实际常见做法', sec_conflict:'冲突 / 已替代', sec_gaps:'资料缺口', sec_searched:'查过什么', sec_missing:'缺少什么', status_label:'答案状态', glossary:'名词解释（看不懂点这里）', st_applicable:'可直接照做', st_superseded:'规则已被新通知替代', st_conflict:'说法冲突 / 问题前提不成立', st_insufficient_context:'缺条件，需要你补充', st_not_found:'资料里没有答案', st_stale:'信息可能过期', proof:'亮起的 {e} 条边就是答案引用的关系，其余为本题读过但未引用的上下文。', no_proof:'这次答案没有引用图上的关系，只引用了原文行。'},
   en: {tagline:'Graph Hacks / Evidence before action', live:'● READ-ONLY KNOWLEDGE GRAPH', h_ask:'01 / Ask your operations brain', ask_label:'Ask a question', ask_ph:'Where is the knowledge base? Who handles this ticket? Which rule is still in force?',
     ex_q1:'Q1 · Knowledge base owner', ex_q4:'Q4 · Channels to join', ex_q15:'Q15 · Who fixes the queue', ask_btn:'Ask Brain ↗', deep:'Deep mode: the model picks every query itself (slower, ~1 min)', cited:'Every claim is cited · click a citation to read the source',
     answer_empty:'Start with a real question. The answer, its evidence and the subgraph it came from appear here.', h_graph:'02 / Follow the evidence', fit:'Fit graph', lg_root:'Read for this answer', lg_entity:'Related entity', lg_rule:'Formal rule', lg_chat:'Chat / observation / practice',
@@ -54,7 +55,7 @@ const I18N = {
     all_evidence:'All returned evidence', budget:'Tool budget used up ({r}): check the answer for gaps.', no_trace:'No query trace returned.', nodes_summary:'{n} nodes · {e} assertions · click a node to expand', truncated:'Relation query truncated to 50 paths.',
     cdn_fail:'Graph component failed to load. Refresh after checking the network; answers and citations still work.', busy_deep:'Deep mode: the model is choosing queries step by step, about a minute...', busy_fast:'Querying the graph, then composing the answer...',
     done:'Done · {mode} · {steps} steps · {ev} evidence lines', timing:' · graph+decisions {g}s, compose {c}s, total {t}s', mode_fast:'fast mode', mode_deep:'deep mode', not_found_entity:'not_found · no matching entity', onto_title:'Ontology / controlled tool contract',
-    status_src:"Status source: {s} · Evidence: this question's own results", assertions:'assertions', lg_cited:'Relation cited by the answer (proof path)', conclusion:'Answer', examples:'Example questions (17, click to ask)', proves:'What this graph proves', raw:'Raw arguments and query templates', trace_howto:'How to use this trace: when an answer looks wrong, read top-down to find the step that failed. The right entity is missing from the candidates: search missed it. It is a candidate but not chosen: Jev misjudged. It was read but the answer leaves it out: the LLM dropped it. Every step lines up with the citations in the answer.', why:'Why', result:'Result', sec_next:'Next step', sec_basis:'Basis', sec_practice:'Actual common practice', sec_conflict:'Conflicts / Superseded', sec_gaps:'Gaps', sec_searched:'Searched', sec_missing:'Missing', status_label:'Status', glossary:'Glossary', st_applicable:'safe to act on', st_superseded:'rule replaced by a newer notice', st_conflict:'sources disagree / premise is wrong', st_insufficient_context:'a condition is missing', st_not_found:'no answer in the material', st_stale:'may be out of date', proof:'The {e} lit edges are the relations the answer cites; the rest is context it read but did not cite.', no_proof:'This answer cites source lines only, no graph relation.'}
+    status_src:"Status source: {s} · Evidence: this question's own results", assertions:'assertions', lg_cited:'Relation cited by the answer (proof path)', conclusion:'Answer', examples:'Example questions (17, click to ask)', proves:'What backs each sentence of the answer', by_graph:'graph relation', by_text:'source text only, no graph relation', text_line:'source', raw:'Raw arguments and query templates', trace_howto:'How to use this trace: when an answer looks wrong, read top-down to find the step that failed. The right entity is missing from the candidates: search missed it. It is a candidate but not chosen: Jev misjudged. It was read but the answer leaves it out: the LLM dropped it. Every step lines up with the citations in the answer.', why:'Why', result:'Result', sec_next:'Next step', sec_basis:'Basis', sec_practice:'Actual common practice', sec_conflict:'Conflicts / Superseded', sec_gaps:'Gaps', sec_searched:'Searched', sec_missing:'Missing', status_label:'Status', glossary:'Glossary', st_applicable:'safe to act on', st_superseded:'rule replaced by a newer notice', st_conflict:'sources disagree / premise is wrong', st_insufficient_context:'a condition is missing', st_not_found:'no answer in the material', st_stale:'may be out of date', proof:'The {e} lit edges are the relations the answer cites; the rest is context it read but did not cite.', no_proof:'This answer cites source lines only, no graph relation.'}
 };
 let lang = 'zh', lastData = null;
 try { lang = localStorage.getItem('oncall-lang') || 'zh'; } catch(e) {}
@@ -176,7 +177,7 @@ function renderExamples() {
 const $ = id => document.getElementById(id);
 const el = (tag, text, cls) => { const e = document.createElement(tag); if(text !== undefined) e.textContent = text; if(cls) e.className = cls; return e; };
 const states = new Set(['applicable','conflict','superseded','insufficient_context','not_found','stale']);
-let citeNumbers = new Map(), evidence = [], citations = [], cy = null, busy = false, graphRevision = 0;
+let conclusionLines = [], citeNumbers = new Map(), evidence = [], citations = [], cy = null, busy = false, graphRevision = 0;
 async function api(path, options) {
   const response = await fetch(path, options);
   const data = await response.json();
@@ -218,16 +219,17 @@ function renderAnswer(data) {
   $('status-source').textContent=t('status_src',{s:data.status_source || 'unknown'});
   $('answer').replaceChildren();
   const SEC={'answer':'conclusion','next step':'sec_next','basis':'sec_basis','actual common practice':'sec_practice','conflicts / superseded':'sec_conflict','gaps':'sec_gaps','searched':'sec_searched','missing':'sec_missing'};
-  let box=null;
+  let box=null, inConclusion=false; conclusionLines=[];
   for(const line of (data.answer || t('no_answer')).split('\n')) {
     if(/^Status:\s/.test(line) || !line.trim()) continue;
     const m=line.match(/^#{1,6}\s+(.*)$/);
     if(m) {
       const key=SEC[m[1].trim().toLowerCase()];
-      if(key==='conclusion') { box=el('div',undefined,'conclusion'); box.append(el('h3',t('conclusion'))); $('answer').append(box); }
-      else { box=null; $('answer').append(el('h3',key?t(key):m[1],'answer-heading')); }
+      if(key==='conclusion') { inConclusion=true; box=el('div',undefined,'conclusion'); box.append(el('h3',t('conclusion'))); $('answer').append(box); }
+      else { inConclusion=false; box=null; $('answer').append(el('h3',key?t(key):m[1],'answer-heading')); }
       continue;
     }
+    if(inConclusion) conclusionLines.push(line.replace(/^\s*[-*]\s+/,''));
     const p=el('p',undefined,'answer-line'); appendCitations(p,line.replace(/^\s*[-*]\s+/,'')); (box || $('answer')).append(p);
   }
   const details=el('details'); details.append(el('summary',`${t('all_evidence')} / ${evidence.length}`));
@@ -258,20 +260,35 @@ function markProof() {
   cy.elements().removeClass('cited dim focus');
   const edges = citedEdges();
   const list = $('proof-list'); list.replaceChildren();
-  if (edges.length) {
+  const name = id => { const n = cy.getElementById(id); return (n.data('label') || id).replace(/^\w+:/, '').replace(/_/g, ' '); };
+  const say = e => (REL[lang][e.data('predicate')] || ('{s} ' + e.data('predicate') + ' {t}'))
+    .replace('{s}', name(e.data('source'))).replace('{t}', name(e.data('target')));
+  if (conclusionLines.length) {
     list.append(el('h4', t('proves')));
-    const seen = new Set();
-    edges.forEach(e => {
-      const name = id => { const n = cy.getElementById(id); return (n.data('label') || id).replace(/^\w+:/, '').replace(/_/g, ' '); };
-      const tpl = REL[lang][e.data('predicate')] || ('{s} ' + e.data('predicate') + ' {t}');
-      const text = tpl.replace('{s}', name(e.data('source'))).replace('{t}', name(e.data('target')));
-      if (seen.has(text)) return; seen.add(text);
-      const row = el('button', undefined, 'proof-row'); row.type = 'button';
-      row.append(el('span', text));
-      const nums = [...citeNumbers.entries()].filter(([txt]) => citations.some(c => c.text === txt && c.aid === e.data('aid'))).map(([, n]) => n);
-      if (nums.length) row.append(el('span', nums.map(n => `[${n}]`).join(''), 'proof-cite'));
-      row.onclick = () => focusCitation(e.data('aid'));
-      list.append(row);
+    conclusionLines.forEach((line, i) => {
+      const cites = citations.filter(c => line.includes(c.text));
+      // An edge backs this sentence if the sentence cites it, or the answer cites it elsewhere
+      // (e.g. under Basis) and the sentence names one of its two entities.
+      const low = line.toLowerCase();
+      const named = e => [e.data('source'), e.data('target')].some(id => { const n = name(id).toLowerCase(); return n.length > 3 && low.includes(n); });
+      const lit = cy.edges().filter(e => cites.some(c => c.aid === e.data('aid')) || (edges.some(x => x.id() === e.id()) && named(e)));
+      const item = el('div', undefined, 'proof-item');
+      const plain = line.replace(/\s*\[[^\]\n]*(?:→|->|corpus\/)[^\]\n]*\]/g, '').trim();
+      item.append(el('p', `${i + 1}. ${plain.length > 90 ? plain.slice(0, 90) + '…' : plain}`, 'proof-sentence'));
+      if (lit.length) {
+        const seen = new Set();
+        lit.forEach(e => {
+          const text = say(e); if (seen.has(text)) return; seen.add(text);
+          const row = el('button', undefined, 'proof-row'); row.type = 'button';
+          row.append(el('span', `${t('by_graph')}：${text}`));
+          row.onclick = () => focusCitation(e.data('aid'));
+          item.append(row);
+        });
+      } else {
+        const where = cites.map(c => `${c.source}:${c.locator}`).filter((v, k, a) => a.indexOf(v) === k).join('，');
+        item.append(el('p', `${t('by_text')}${where ? `（${t('text_line')}：${where}）` : ''}`, 'proof-textonly'));
+      }
+      list.append(item);
     });
   }
   if(edges.length) {

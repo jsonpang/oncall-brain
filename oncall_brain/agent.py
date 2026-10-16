@@ -35,6 +35,11 @@ HARD RULES:
    Use query_relations when you need to follow a chain past the first hop.
 4. Facts come only from assertions returned by the tools. If an assertion is not
    visible, it is not known -- do not fill it in from general knowledge.
+   When a graph assertion (an entry under "assertions" or "paths") carries a
+   fact, cite that assertion's aid with its evidence line, not only the bare
+   source line: the assertion is what proves the relation. For a list (channels,
+   fields, people), cite the assertion for each item that has one. Bare source
+   lines are for facts no assertion carries.
 5. Answer the question asked and name the specifics the questioner needs: the
    actual person, the actual channel, form or path, the actual deadline and
    number. A correct-but-generic answer ("use the standard procedure") is a
