@@ -10,6 +10,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
+from copy import deepcopy
+from typing import Callable
 from pathlib import Path
 
 from . import tools
@@ -262,13 +265,39 @@ LANG_NOTE = {"zh": ("Write the answer text in Simplified Chinese. Keep the markd
                     "citation exactly as they are, in English.")}
 
 
+class _StepLog(list):
+    """Keep the historical trace unchanged while publishing progress snapshots."""
+    def __init__(self, on_step=None):
+        super().__init__()
+        self.on_step = on_step
+        self.started = time.perf_counter()
+
+    def emit(self, entry):
+        if self.on_step is not None:
+            self.on_step({"tool": entry["tool"],
+                          "summary": deepcopy(entry.get("summary", {})),
+                          "args": deepcopy(entry.get("args", {})),
+                          "args_str": entry.get("args_str") or _arg_str(entry.get("args", {})),
+                          "elapsed": round(time.perf_counter() - self.started, 3)})
+
+    def append(self, entry):
+        super().append(entry)
+        self.emit(entry)
+
+    def compose(self):
+        self.emit({"tool": "compose"})
+
+
 def ask(question: str, model: str | None = None, trace: list | None = None,
-        max_calls: int = MAX_CALLS, lang: str | None = None) -> dict:
+        max_calls: int = MAX_CALLS, lang: str | None = None,
+        on_step: Callable[[dict], None] | None = None) -> dict:
     """Run the tool-calling loop for one question.
 
     `trace` (if given) collects the real call sequence: tool name, arguments,
     result status, and the Cypher template each call used.
+    `on_step` receives progress snapshots with elapsed seconds, including compose.
     """
+    log = _StepLog(on_step)
     client = _openai_client()
     model = model or os.environ.get("LLM_MODEL")
     messages = [
@@ -277,7 +306,6 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
          + ("\n" + LANG_NOTE[lang] if lang in LANG_NOTE else "")},
         {"role": "user", "content": question},
     ]
-    log: list[dict] = []
     tool_results: list[dict] = []
     relation_queries = 0
     answer = ""
@@ -302,6 +330,8 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
             + json.dumps(result, ensure_ascii=False, default=str)})
 
     for step in range(max_calls):
+        # Auto tool choice can also return the final answer on this turn.
+        log.compose()
         resp = client.chat.completions.create(
             model=model, messages=messages, tools=_tool_specs(),
             tool_choice="auto", temperature=0.0)
@@ -361,6 +391,7 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
         stop_reason = "max_calls_reached"
 
     if not answer:
+        log.compose()
         # Always close out with a written answer, whether the budget ran out or
         # the last turn ended on tool calls: an empty answer is useless to the
         # reader and unjudgeable by the eval.

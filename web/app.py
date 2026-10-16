@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 import os
+import json
+from queue import Queue, Empty
+from threading import Thread
 import re
 from functools import wraps
 
 # A safe demo default, before db.py loads .env. Explicit configuration still wins.
 os.environ.setdefault("GRAPH_NAME", "oncall_brain")
 
-from flask import Flask, jsonify, request  # noqa: E402
+from flask import Flask, Response, jsonify, request  # noqa: E402
 from oncall_brain import agent, fast, tools  # noqa: E402
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
@@ -235,20 +238,21 @@ def neighbors(node_id):
     return jsonify(result)
 
 
-@app.post("/api/ask")
-@available
-def ask():
+def ask_payload():
     payload = request.get_json(silent=True)
     question = payload.get("question") if isinstance(payload, dict) else None
     if not isinstance(question, str) or not 1 <= len(question.strip()) <= 4000:
-        return jsonify(status="error", error="question must contain 1–4000 characters."), 400
-    mode = payload.get("mode", "fast")
-    lang = payload.get("lang") if payload.get("lang") in ("zh", "en") else None
+        raise ValueError("question must contain 1–4000 characters.")
+    return (question.strip(), payload.get("mode", "fast"),
+            payload.get("lang") if payload.get("lang") in ("zh", "en") else None)
+
+
+def run_ask(question, mode, lang, on_step=None):
     trace = []
-    if mode == "deep":
-        result = dict(agent.ask(question.strip(), trace=trace, lang=lang))
-    else:
-        result = dict(fast.ask_fast(question.strip(), trace=trace, lang=lang))
+    kwargs = {"trace": trace, "lang": lang}
+    if on_step is not None:
+        kwargs["on_step"] = on_step
+    result = dict((agent.ask if mode == "deep" else fast.ask_fast)(question, **kwargs))
     result.setdefault("trace", trace)
     result["mode"] = "deep" if mode == "deep" else "fast"
     # Evidence and graph come from this question's own tool results (graph reads
@@ -275,7 +279,51 @@ def ask():
     result["expertise"] = [{k: data.get(k) for k in ("start_id", "owners", "handlers", "evidence")}
                            for data in readbacks if data.get("handlers")]
     result.pop("tool_results", None)
-    return jsonify(result)
+    return result
+
+
+@app.post("/api/ask")
+@available
+def ask():
+    try:
+        args = ask_payload()
+    except ValueError as exc:
+        return jsonify(status="error", error=str(exc)), 400
+    return jsonify(run_ask(*args))
+
+
+@app.post("/api/ask/stream")
+@available
+def ask_stream():
+    try:
+        args = ask_payload()
+    except ValueError as exc:
+        return jsonify(status="error", error=str(exc)), 400
+    events = Queue()
+
+    def work():
+        try:
+            result = run_ask(*args, on_step=lambda step: events.put(("step", step)))
+            events.put(("done", result))
+        except Exception:
+            events.put(("error", {"status": "error", "error":
+                       "Graph or model unavailable; check local configuration."}))
+
+    def stream():
+        Thread(target=work, daemon=True).start()
+        while True:
+            try:
+                event, data = events.get(timeout=10)
+            except Empty:
+                yield ": keepalive\n\n"
+                continue
+            yield f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+            if event in ("done", "error"):
+                return
+
+    return Response(stream(), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
 
 
 if __name__ == "__main__":

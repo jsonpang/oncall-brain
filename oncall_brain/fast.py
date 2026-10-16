@@ -18,10 +18,11 @@ import json
 import os
 import re
 import time
+from typing import Callable
 
 from . import tools
 from .agent import SYSTEM, LANG_NOTE, MAX_CALLS, MAX_RELATION_QUERIES, _arg_str, _finalize, _summary, \
-    _openai_client, _templates_for
+    _openai_client, _templates_for, _StepLog
 from .citations import citation_pairs, compact_tool_result
 
 JEV_URL = "https://api.typesafe.ai/v1/systemone"
@@ -105,10 +106,11 @@ def _jev_pick(question: str, cands: list[dict]) -> tuple[list[dict], str]:
 
 
 def ask_fast(question: str, model: str | None = None, trace: list | None = None,
-             lang: str | None = None) -> dict:
+             lang: str | None = None, on_step: Callable[[dict], None] | None = None) -> dict:
+    """Retrieve and answer; optionally publish steps before the final response."""
     t0 = time.perf_counter()
     timings: dict[str, float] = {}
-    log: list[dict] = []
+    log = _StepLog(on_step)
     tool_results: list[dict] = []
 
     def record(name: str, args: dict, result: dict) -> dict:
@@ -188,6 +190,7 @@ def ask_fast(question: str, model: str | None = None, trace: list | None = None,
         timings["expertise"] = time.perf_counter() - t
 
     t = time.perf_counter()
+    log.compose()
     client = _openai_client()
     prompt = SYSTEM.format(max_calls=MAX_CALLS, max_rel=MAX_RELATION_QUERIES)
     if lang in LANG_NOTE:
