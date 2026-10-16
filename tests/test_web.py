@@ -19,7 +19,7 @@ GRAPH_NAME = db.GRAPH_NAME
 def _graph_has_rows() -> bool:
     """True when the configured graph exists and holds at least one entity."""
     try:
-        rows = db.g().query("MATCH (n:Entity) RETURN n.id LIMIT 1").result_set
+        rows = db.g().ro_query("MATCH (n:Entity) RETURN n.id LIMIT 1").result_set
     except Exception:  # noqa: BLE001 - no FalkorDB, or graph not built
         return False
     return bool(rows)
