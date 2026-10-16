@@ -92,7 +92,15 @@ def answer_status(answer, results, evidence, incomplete=False):
     # Respect a structured/explicit model status if provided in prose.
     match = re.search(r"(?:answer[_ ]?status|status|状态)\s*[:：]\s*[`*]*(" + "|".join(STATES) + r")\b", answer, re.I)
     if match:
-        return match.group(1).lower(), "answer_label"
+        label = match.group(1).lower()
+        # A conflict must be in the sources, not only in the model's reading: the
+        # graph found clashing values, or the answer sets two source lines side by side.
+        if label == "conflict" and not any(r.get("conflicts") for r in results):
+            section = re.search(r"##\s*Conflicts[^\n]*\n(.*?)(?=\n##\s|\Z)", answer, re.S)
+            lines = set(re.findall(r"corpus/[^:\]\s]+:\d+", section.group(1))) if section else set()
+            if len(lines) < 2:
+                return ("applicable" if evidence else "not_found"), "conflict_unsupported"
+        return label, "answer_label"
     if incomplete:
         return "insufficient_context", "incomplete_readback"
     if any(r.get("conflicts") for r in results):

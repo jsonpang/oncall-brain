@@ -105,6 +105,19 @@ def _jev_pick(question: str, cands: list[dict]) -> tuple[list[dict], str]:
     return cands[:4], "fulltext"
 
 
+def _to_english(question: str, model: str | None = None) -> str:
+    """One short translation call; on any failure search with the original text."""
+    try:
+        resp = _openai_client().chat.completions.create(
+            model=model or os.environ.get("FAST_MODEL") or os.environ.get("LLM_MODEL"), temperature=0.0,
+            messages=[{"role": "user", "content": "Translate this IT operations question into "
+                       "English. Reply with the translation only.\n\n" + question}])
+        text = (resp.choices[0].message.content or "").strip()
+        return text if _keywords(text) else question
+    except Exception:  # noqa: BLE001 - translation is best-effort
+        return question
+
+
 def ask_fast(question: str, model: str | None = None, trace: list | None = None,
              lang: str | None = None, on_step: Callable[[dict], None] | None = None) -> dict:
     """Retrieve and answer; optionally publish steps before the final response."""
@@ -124,15 +137,22 @@ def ask_fast(question: str, model: str | None = None, trace: list | None = None,
                     "summary": _summary(result)})
         return result
 
-    pre = tools.related_source_lines(question)
+    # The sources are English: Chinese words match nothing (one stray "OOM" is not
+    # enough), so search with an English rendering and answer the question as asked.
+    search_q = _to_english(question, model) if re.search(r"[一-鿿]", question) else question
+    if search_q != question:
+        log.append({"step": len(log) + 1, "tool": "translate", "args": {"english": search_q},
+                    "args_str": "", "status": "ok", "template": ["(no Cypher: translation)"],
+                    "summary": {"name": search_q}})
+    pre = tools.related_source_lines(search_q)
     if pre:
-        record("source_lines", {"question_words": " ".join(_keywords(question))},
+        record("source_lines", {"question_words": " ".join(_keywords(search_q))},
                {"status": "ok", "source_evidence": pre})
-    cands = _candidates(question)
+    cands = _candidates(search_q)
     timings["retrieve"] = time.perf_counter() - t0
 
     t = time.perf_counter()
-    chosen, decided_by = _jev_pick(question, cands)
+    chosen, decided_by = _jev_pick(search_q, cands)
     timings["decide"] = time.perf_counter() - t
     if log:
         log[-1]["candidates"] = len(cands)
@@ -160,7 +180,7 @@ def ask_fast(question: str, model: str | None = None, trace: list | None = None,
                 hop.setdefault(o["id"], {"id": o["id"], "kind": o["kind"], "name": o["name"] or o["id"]})
     hop_cands = list(hop.values())[:24]
     if hop_cands:
-        picked, by = _jev_pick(question, hop_cands)
+        picked, by = _jev_pick(search_q, hop_cands)
         picked = [c for c in picked if c.get("jev", 1) >= 0.5][:3]
         log.append({"step": len(log) + 1, "tool": f"decide hop ({by})",
                     "args": {"neighbours": len(hop_cands),
@@ -172,7 +192,7 @@ def ask_fast(question: str, model: str | None = None, trace: list | None = None,
 
     # "Who should I ask" about a module: the official owner is one read away; who
     # has actually fixed it sits two hops off (Ticket-ABOUT->Module, Ticket-HANDLED_BY->Person).
-    if WHO.search(question):
+    if WHO.search(question) or WHO.search(search_q):
         t = time.perf_counter()
         mods = [r["entity"]["id"] for r in tool_results
                 if (r.get("entity") or {}).get("kind") == "Module"][:2]
