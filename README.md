@@ -441,13 +441,13 @@ This is not a fast-mode benchmark. Both answering and judging call the provider;
 Outputs: `eval/results/latest.md`, timestamped Markdown and JSON reports,
 `answers_cache.json`, and a judge cache. Reports include tool arguments, executed
 template names, answers, citations, PASS/FAIL, and provenance (commit, graph/model,
-and fingerprints). Existing `eval/snapshot/` files are historical runs, not the
+and fingerprints). Other `eval/snapshot/` files are historical runs, not the
 frozen-build result. LLM judging can vary; rerun commands to obtain measurements
 for your configured graph and models.
 
 Final eval (frozen build, commit `1fd1876`, graph `oncall_brain`, model
 `gemini-3.8-flash-high`, run once on 2026-10-17): **PASS 15 / 17**, 0 invalid
-judgements. The two failures, as recorded in `eval/results/20261017-035936.md`:
+judgements. The two failures, as recorded in `eval/snapshot/final-frozen.md`:
 
 - Q1 - point coverage 1/3: the answer gives the Knowledge Hub path and the
   maintainer, but the judge credited only one of the three required points.
