@@ -632,6 +632,14 @@
       .cf-vs { text-align: center; }
       .ss-card { flex-direction: column; align-items: flex-start; gap: 10px; }
     }
+
+    #procedure-select { width:100%; min-width:0; background:var(--card-bg); color:var(--text); border:1px solid var(--line); padding:10px; border-radius:7px; }
+    .sequence-layer { border-left:2px solid var(--mint); padding:8px 0 12px 14px; margin-top:12px; }
+    .sequence-row { display:flex; flex-wrap:wrap; gap:10px; }
+    .sequence-card { flex:1 1 220px; min-width:0; max-width:100%; border:1px solid var(--line); background:var(--card-bg); padding:12px; border-radius:8px; overflow-wrap:anywhere; }
+    #sequence-content, #sequence-content > * { min-width:0; overflow-wrap:anywhere; }
+    #sequence-content summary { color:var(--blue); cursor:pointer; }
+    #sequence-content pre { white-space:pre-wrap; }
   </style>
 </head>
 <body>
@@ -754,6 +762,12 @@
     <div id="content-ss"></div>
   </section>
 
+  <section class="risk-section" aria-labelledby="sequence-title">
+    <h2 id="sequence-title">流程顺序</h2>
+    <label id="sequence-label" for="procedure-select">选择流程</label>
+    <select id="procedure-select"></select>
+    <div id="sequence-content" aria-live="polite"></div>
+  </section>
 </main>
 
 <script>
@@ -1048,6 +1062,7 @@ function setLanguage(lang) {
     btn.classList.toggle('on', btn.dataset.lang === lang);
   });
   render();
+  renderSequence();
 }
 
 function formatDate(isoStr) {
@@ -1415,6 +1430,62 @@ async function init() {
   }
 }
 
+
+let procedureList = [], sequenceData = null, sequenceState = 'loading', sequenceRequest = 0;
+const sequenceText = {
+  zh: {title:'流程顺序', select:'选择流程', loading:'加载中…', empty:'暂无带步骤的流程', error:'流程数据读取失败，请重新选择或刷新。', unknown:'顺序未知', cycle:'检测到环，无法排序', blocked:'被环阻塞', ordered:'步', step_n:'第 {n} 步', parallel:'可同时做', frontier:'按原文里的「先后顺序」关系排列；标「可同时做」的步骤有原文依据。', rules:'遵守规则', resources:'使用资源', performers:'执行人', required_fields:'必填字段', none:'未记录', evidence:'出处', noEvidence:'未记录原文片段', steps:'步'},
+  en: {title:'Procedure sequence', select:'Choose a procedure', loading:'Loading…', empty:'No procedures with steps', error:'Could not read procedures. Select again or refresh.', unknown:'Order unknown', cycle:'Cycle detected; cannot sort', blocked:'Blocked by cycle', ordered:'Step', step_n:'Step {n}', parallel:'Explicitly parallel', frontier:'Ordered by the "comes before" relations in the sources; steps marked parallel have source evidence.', rules:'Rules', resources:'Resources', performers:'Performers', required_fields:'Required fields', none:'Not recorded', evidence:'Evidence', noEvidence:'No source excerpt recorded', steps:'steps'}
+};
+function renderSequence() {
+  const text = sequenceText[currentLang], esc = escapeHtml;
+  document.getElementById('sequence-title').textContent = text.title;
+  document.getElementById('sequence-label').textContent = text.select;
+  const select = document.getElementById('procedure-select'), selected = select.value;
+  select.innerHTML = '<option value="">'+esc(text.select)+'</option>' + procedureList.map(p =>
+    `<option value="${esc(p.id)}">${esc(p.name)} (${p.step_count} ${text.steps})</option>`).join('');
+  select.value = selected;
+  const container = document.getElementById('sequence-content');
+  if (sequenceState !== 'ready') { container.textContent = text[sequenceState]; return; }
+  if (!sequenceData) { container.textContent = procedureList.length ? text.select : text.empty; return; }
+  const data = sequenceData, evidence = new Map((data.evidence || []).map(e => [e.id,e]));
+  function sources(assertions) {
+    return assertions.map(a => `<details><summary>${esc(text.evidence)} · ${esc(a.aid || '—')} · ${esc(a.predicate || '')}</summary>${(a.evidence || []).map(id => {
+      const e = evidence.get(id);
+      return e ? `<div>${esc(e.source)}:${esc(e.locator)}</div><pre>${esc(e.excerpt)}</pre>` : `<div>${esc(id)} / ${esc(text.noEvidence)}</div>`;
+    }).join('') || esc(text.noEvidence)}</details>`).join('');
+  }
+  container.innerHTML = `<p>${esc(text.frontier)}</p>` +
+    (data.status === 'cycle' ? `<p class="badge badge-alert">${esc(text.cycle)}</p>` : '') +
+    data.layers.map(l => `<div class="sequence-layer"><strong>${l.status === 'ordered' ? esc(text.step_n.replace('{n}', l.number)) : `${l.number} / ${esc(text[l.status])}`}</strong>
+      ${(l.parallel_groups || []).map(g => `<p>${esc(text.parallel)}: ${g.map(esc).join(' + ')}</p>`).join('')}
+      <div class="sequence-row">${l.steps.map(step => `<article class="sequence-card"><strong>${esc(step.name)}</strong><div><code>${esc(step.id)}</code></div>
+      ${(step.performers || []).length ? `<p>${esc(text.performers)}: ${step.performers.map(p => esc(p.name)).join(', ')}</p>` : ''}
+      ${sources([...(step.assertions || []), ...(step.performers || [])])}</article>`).join('')}</div></div>`).join('') +
+    ['rules','resources','performers','required_fields'].map(key => `<h3>${esc(text[key])}</h3>${(data[key] || []).map(item => `<div>${esc(item.name)}${sources([item])}</div>`).join('') || esc(text.none)}`).join('');
+}
+async function loadSequence() {
+  const id = document.getElementById('procedure-select').value, ticket = ++sequenceRequest;
+  sequenceData = null; sequenceState = id ? 'loading' : 'ready'; renderSequence();
+  if (!id) return;
+  try {
+    const resp = await fetch('/api/procedure/' + encodeURIComponent(id) + '/steps');
+    if (!resp.ok) throw new Error('request failed');
+    const data = await resp.json();
+    if (ticket !== sequenceRequest) return;
+    sequenceData = data; sequenceState = 'ready';
+  } catch { if (ticket !== sequenceRequest) return; sequenceState = 'error'; }
+  renderSequence();
+}
+async function initSequence() {
+  document.getElementById('procedure-select').addEventListener('change', loadSequence);
+  renderSequence();
+  try {
+    const resp = await fetch('/api/procedures');
+    if (!resp.ok) throw new Error('request failed');
+    procedureList = await resp.json(); sequenceState = 'ready'; renderSequence();
+  } catch { sequenceState = 'error'; renderSequence(); }
+}
+window.addEventListener('DOMContentLoaded', initSequence);
 window.addEventListener('DOMContentLoaded', init);
 </script>
 </body>

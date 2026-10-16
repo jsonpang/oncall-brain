@@ -135,6 +135,21 @@ def ontology():
     return jsonify(tools.describe_ontology())
 
 
+@app.get("/api/procedures")
+@available
+def procedures():
+    from oncall_brain.sequence import list_procedures
+    return jsonify(list_procedures())
+
+
+@app.get("/api/procedure/<path:procedure_id>/steps")
+@available
+def procedure_steps(procedure_id):
+    from oncall_brain.sequence import procedure_steps as get_steps
+    result = get_steps(procedure_id)
+    return jsonify(result), 404 if result['status'] == 'not_found' else 200
+
+
 @app.get('/demo')
 def demo_page():
     return app.send_static_file('freshness.html')
