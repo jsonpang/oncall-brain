@@ -2,7 +2,7 @@
 
 All Cypher is generated server-side from templates -- the model only chooses
 predicates, direction and hop count, never writes Cypher. Every hop applies the
-visibility predicate from design doc §4.3:
+visibility predicate:
 
     r.state='approved' AND r.valid_from <= $now AND (r.valid_to IS NULL OR r.valid_to > $now)
 
@@ -44,7 +44,7 @@ TEMPLATES = {
     "read_neighbors": (
         "MATCH (n:Entity {id: $id})-[r]-(m:Entity) WHERE " + VISIBLE + " "
         "RETURN type(r), startNode(r).id = $id, m.id, m.kind, m.name, "
-        "r.aid, r.authority, r.valid_from, r.valid_to, r.condition, r.condition_key, r.penalty "),
+        "r.aid, r.authority, r.valid_from, r.valid_to, r.condition, r.condition_key, r.penalty, r.evidence "),
     "superseded_targets": (
         "MATCH (n)-[r:SUPERSEDES]->(o) WHERE " + VISIBLE + " "
         "RETURN o.id, n.id, r.aid, r.valid_from"),
@@ -419,8 +419,11 @@ def read_knowledge(id: str, context: dict | None = None) -> dict:
         out["applicability"] = _eval_condition(
             props_cond, props.get("condition_key"), context)
     ev: set[str] = set()
-    for (typ, outgoing, mid, mkind, mname, aid, auth, vf, vt,
-         cond, ckey, penalty) in rows:
+    for row in rows:
+                # Evidence ids come back with the neighbour row; one query per
+                # assertion over a remote link turned a read into seconds.
+                (typ, outgoing, mid, mkind, mname, aid, auth, vf, vt,
+                 cond, ckey, penalty) = row[:12]
                 rec = {"predicate": typ, "direction": "out" if outgoing else "in",
                        "other": {"id": mid, "kind": mkind, "name": mname},
                        "aid": aid, "authority": auth,
@@ -432,11 +435,12 @@ def read_knowledge(id: str, context: dict | None = None) -> dict:
                 if penalty:
                     rec["penalty"] = penalty
                 out["assertions"].append(rec)
-                rec["evidence"] = _rel_evidence(id, aid, typ, mid, outgoing)
+                rec["evidence"] = (list(row[12] or []) if len(row) > 12
+                                   else _rel_evidence(id, aid, typ, mid, outgoing))
                 ev.update(rec["evidence"])
     out["assertions"].sort(key=lambda a: (S.AUTH_RANK.get(a["authority"], 9),
                                           a["predicate"], a["other"]["id"]))
-    # conflict detection over single-valued slots (design doc §3.6)
+    # conflict detection over single-valued slots
     by_slot: dict[tuple[str, str], list[dict]] = {}
     for a in out["assertions"]:
         if a["predicate"] in S.SINGLE_VALUED and a["direction"] == "out":

@@ -12,20 +12,26 @@ guessing.
 All data describes **AetherPulse**, a fictional company. The corpus is synthetic;
 no real organisation, person or contact appears anywhere in it.
 
+**Track:** Graph Hacks — **Company Brain** (docs, tickets and chat fused into one
+graph; who owns what vs. who curates what; every answer traceable to its source;
+superseded rules kept out of current answers).
+
 ## Install
 
-Requires Python 3.12 and a FalkorDB instance.
+Requires Python 3.12, a FalkorDB instance (e.g. `docker run -p 6379:6379 falkordb/falkordb`)
+and any OpenAI-compatible chat endpoint that supports tool calling.
 
 ```bash
 pip install -r requirements.txt
 
 # .env (gitignored) — never commit real keys
 FALKOR_HOST=127.0.0.1
-FALKOR_PORT=16379
+FALKOR_PORT=6379
 GRAPH_NAME=oncall_brain
 LLM_BASE_URL=https://<your-openai-compatible-endpoint>/v1
-LLM_MODEL=workbuddy-space-bunny
-LLM_API_KEY=<key redacted>
+LLM_MODEL=<a tool-calling model, e.g. gemini-3.8-flash-high>
+LLM_API_KEY=<your key>
+# optional: LLM_JUDGE_MODEL=<a different model for eval judging>
 ```
 
 Build and query:
@@ -38,7 +44,12 @@ python cli.py ask "Where can I find our module knowledge base for Pipeline?"
 python cli.py mcp               # serve the same tools over MCP (stdio)
 
 python eval/run_gold.py         # 17 gold-card questions -> eval/results/latest.md
+python -m web.app               # web UI on http://127.0.0.1:8000
 ```
+
+The web UI shows three panes: the cited answer (click any citation to read the
+source line), the subgraph behind it (click a node to expand its neighbours), and
+the real tool-call trace with the Cypher template names each call executed.
 
 ## Graph model
 
@@ -89,7 +100,7 @@ Each assertion carries `aid`, `authority` (`formal_rule` > `practice` >
 
 ### Visibility
 
-Every hop is filtered server-side (design doc §4.3):
+Every hop is filtered server-side:
 
 ```
 r.state = 'approved'
@@ -116,6 +127,8 @@ and the server substitutes them into these templates (all in
 | `superseded_targets` | every entity currently superseded, with replacement and date |
 | `traverse` | variable-length path expansion with per-hop visibility filtering via `all(rel IN relationships(p) WHERE ...)` |
 | `evidence_by_id` | resolve evidence records to source/locator/excerpt/authority |
+| `source_search` | verbatim lookup over `Evidence` lines, for identifiers no entity name carries |
+| `slot_claims` / `claim_value_kinds` | competing values for one semantic slot, for conflict detection |
 
 ## Tools
 
@@ -129,6 +142,12 @@ and the server substitutes them into these templates (all in
 Budget: ≤8 tool calls and ≤6 relation queries per question. IDs may only come
 from tool results. The same four tools are exposed over MCP stdio
 (`python cli.py mcp`) and used by the CLI and the agent.
+
+Before the tool loop the agent also receives the source lines that share the most
+informative (IDF-weighted) words with the question, so official passages the model
+would not think to search for are in view; this lookup does not count against the
+budget. `read_knowledge` returns the lines that follow each evidence line in the
+same thread, where enumerations and penalties usually sit.
 
 Answers follow a fixed shape: **Next step → Basis (each claim citing
 `[aid → file:line]`) → Actual common practice → Conflicts / Superseded → Gaps**.
@@ -151,13 +170,16 @@ LLM slice results are cached by content hash, so reruns make no repeat calls.
 ## Evaluation
 
 `python eval/run_gold.py` runs the 17 gold-card questions in `docs/02-答案卡.md`
+(card text in Chinese, questions in English)
 against the live graph and writes `eval/results/latest.md`. Each entry records the
 real tool sequence with arguments, the Cypher templates executed, the verbatim
 answer, the citations it emitted, and PASS/FAIL against that card's own expected
 state, point list and forbidden errors.
 
-Current result: see `eval/results/latest.md` (regenerate it with the command
-above — this number is not reproduced here so that it cannot drift from the file).
+A committed snapshot of the latest full run is in `eval/snapshot/latest.md`;
+regenerate it with the command above. Judging is done by an LLM against each
+card, so single runs vary by a question or two; set `LLM_JUDGE_MODEL` to judge
+with a model other than the one answering.
 
 ## FalkorDB notes
 
@@ -174,6 +196,7 @@ Two behaviours of the FalkorDB build this was developed against shaped the code:
 
 ## Disclosure
 
-All company data is fictional. An AI coding assistant (Claude Code) participated
-in writing this code; every reported metric comes from running the commands above
-rather than from the assistant's claims.
+All company data is fictional. AI coding assistants (Claude Code and OpenAI Codex)
+were used to write much of this code under the author's design and review; every
+reported metric comes from running the commands above rather than from an
+assistant's claims.

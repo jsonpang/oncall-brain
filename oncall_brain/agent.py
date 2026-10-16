@@ -1,6 +1,6 @@
 """Tool-calling agent loop over the 4 read-only tools.
 
-Budget per design doc §6: at most 8 tool calls and 6 relation queries per
+Budget: at most 8 tool calls and 6 relation queries per
 question. The agent may only use IDs that came back from a tool result. It
 answers in the mandated order and, when nothing is visible, says not_found
 instead of guessing.
@@ -363,6 +363,14 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
             answer = ("(answer generation failed after retries: no response from "
                       "the model provider)")
 
+    return _finalize(question, answer, tool_results, log, trace,
+                     relation_queries=relation_queries, stop_reason=stop_reason)
+
+
+def _finalize(question: str, answer: str, tool_results: list[dict], log: list[dict],
+              trace: list | None = None, relation_queries: int = 0,
+              stop_reason: str = "completed") -> dict:
+    """Status, citation grounding and not_found handling shared by both modes."""
     if trace is not None:
         trace.extend(log)
     proposed = re.match(r"\AStatus:\s*(\w+)", answer)

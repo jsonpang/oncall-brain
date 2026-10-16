@@ -51,18 +51,24 @@ class WebTests(unittest.TestCase):
             self.assertIn(edge["target"], ids)
             self.assertIn(edge["authority"], ("formal_rule", "practice", "observation"))
 
-    def test_ask_enriches_trace_without_llm(self):
+    def test_ask_uses_its_own_tool_results_without_llm(self):
+        from oncall_brain import tools
         node_id = self.candidate()
         trace = [{"tool": "read_knowledge", "args": {"id": node_id},
                   "template": ["read_entity"], "status": "ok"}]
-        with patch("web.app.agent.ask", return_value={"answer": "Evidence-backed answer", "trace": trace}):
-            result = self.client.post("/api/ask", json={"question": "Pipeline?"})
-        self.assertEqual(result.status_code, 200)
-        self.assertEqual(result.json["trace"], trace)
-        self.assertTrue(result.json["evidence"])
-        self.assertTrue(result.json["graph"]["edges"])
-        self.assertEqual(result.json["evidence_origin"], "read_only_trace_replay")
-        self.assertIn(result.json["status"], ("applicable", "conflict", "superseded", "insufficient_context"))
+        fake = {"answer": "Evidence-backed answer", "trace": trace,
+                "tool_results": [tools.read_knowledge(node_id)]}
+        for mode, target in (("fast", "web.app.fast.ask_fast"), ("deep", "web.app.agent.ask")):
+            with patch(target, return_value=dict(fake)):
+                result = self.client.post("/api/ask", json={"question": "Pipeline?", "mode": mode})
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.json["mode"], mode)
+            self.assertEqual(result.json["trace"], trace)
+            self.assertTrue(result.json["evidence"])
+            self.assertTrue(result.json["graph"]["edges"])
+            self.assertNotIn("tool_results", result.json)
+            self.assertEqual(result.json["evidence_origin"], "tool_results")
+            self.assertIn(result.json["status"], ("applicable", "conflict", "superseded", "insufficient_context"))
 
     def test_invalid_and_missing_requests(self):
         for body in ({}, {"question": " "}, {"question": 12}, {"question": "x" * 4001}, []):

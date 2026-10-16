@@ -9,7 +9,7 @@ from functools import wraps
 os.environ.setdefault("GRAPH_NAME", "oncall_brain")
 
 from flask import Flask, jsonify, request  # noqa: E402
-from oncall_brain import agent, tools  # noqa: E402
+from oncall_brain import agent, fast, tools  # noqa: E402
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024
@@ -45,6 +45,7 @@ def graph_from(results):
             root = result["entity"]
             node({k: root[k] for k in ("id", "kind", "name") if k in root})
             nodes[root["id"]]["superseded"] = bool(result.get("superseded"))
+            nodes[root["id"]]["root"] = True  # an entity this answer actually read
             for assertion in result.get("assertions", []):
                 other = assertion["other"]
                 node(other)
@@ -148,23 +149,22 @@ def ask():
     question = payload.get("question") if isinstance(payload, dict) else None
     if not isinstance(question, str) or not 1 <= len(question.strip()) <= 4000:
         return jsonify(status="error", error="question must contain 1–4000 characters."), 400
+    mode = payload.get("mode", "fast")
     trace = []
-    result = dict(agent.ask(question.strip(), trace=trace))
+    if mode == "deep":
+        result = dict(agent.ask(question.strip(), trace=trace))
+    else:
+        result = dict(fast.ask_fast(question.strip(), trace=trace))
     result.setdefault("trace", trace)
+    result["mode"] = "deep" if mode == "deep" else "fast"
+    # Evidence and graph come from this question's own tool results (graph reads
+    # and source lines); replaying every call again only added seconds.
     readbacks, warnings, evidence = [], [], {}
-    for entry in result["trace"]:
-        name = entry.get("tool")
-        if name not in ("search_knowledge", "read_knowledge", "query_relations") or entry.get("status") == "error":
-            continue
-        try:
-            data = tools.TOOLS[name]["fn"](**entry.get("args", {}))
-            if data.get("status") == "error":
-                raise ValueError("readback failed")
-            readbacks.append(data)
-            for item in data.get("evidence", []):
+    for data in result.get("tool_results", []):
+        readbacks.append(data)
+        for item in data.get("evidence", []) + data.get("source_evidence", []):
+            if isinstance(item, dict) and "id" in item:
                 evidence[item["id"]] = item
-        except Exception:
-            warnings.append(f"Evidence readback unavailable for {name}.")
     result["evidence"] = list(evidence.values())
     result["citations"] = citations_from(result.get("answer", ""), result["evidence"])
     unmatched = sum(c["evidence_id"] is None for c in result["citations"])
@@ -175,8 +175,9 @@ def ask():
         result.get("answer", ""), readbacks, evidence, bool(warnings))
     if unmatched:
         result["status"], result["status_source"] = "insufficient_context", "citation_validation"
-    result["evidence_origin"] = "read_only_trace_replay"
+    result["evidence_origin"] = "tool_results"
     result["warnings"] = warnings
+    result.pop("tool_results", None)
     return jsonify(result)
 
 

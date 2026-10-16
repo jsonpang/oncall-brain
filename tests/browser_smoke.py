@@ -30,7 +30,7 @@ def main():
         page.goto("http://localhost:8000", wait_until="networkidle")
         page.wait_for_function("window.cytoscape && document.getElementById('graph').children.length > 0")
         page.locator('[data-example="Q1"]').click()
-        page.locator('#activity').filter(has_text="完成").wait_for()
+        page.locator('#activity').filter(has_text="Done").wait_for()
         assert page.locator('#question').input_value() == recording['question']
         assert page.locator('#trace .trace-card').count() == len(recording['trace'])
         assert page.evaluate("cy.nodes().length") > 0
@@ -38,13 +38,13 @@ def main():
         page.locator('#answer button[data-matched="true"]').first.click()
         assert page.locator('#evidence-dialog').is_visible()
         assert len(page.locator('#evidence-text').inner_text()) > 20
-        assert "摘录" not in page.locator('#evidence-text').inner_text()[:8]
+        assert not page.locator("#evidence-text").inner_text().startswith("No excerpt")
         page.locator('#close-dialog').click()
         checks.append("Matched citation opens original graph excerpt")
         missing = page.locator('#answer button[data-matched="false"]')
         if missing.count():
             missing.first.click()
-            assert "没有此引用的摘录" in page.locator('#evidence-text').inner_text()
+            assert "No excerpt for this citation" in page.locator('#evidence-text').inner_text()
             page.locator('#close-dialog').click()
             checks.append("Unmatched citation explicitly reports missing excerpt")
         with page.expect_response(lambda response: '/api/neighbors/' in response.url and response.status == 200):

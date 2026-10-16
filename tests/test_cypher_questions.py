@@ -1,6 +1,6 @@
 """Six pure-Cypher questions answered end to end from the graph, no LLM.
 
-Each test states one of the six questions the design doc §7 lists as answerable
+Each test states one of the six questions the design lists as answerable
 straight from deterministic sources, asserts the exact answer the graph must
 give, and asserts that every returned assertion carries real evidence.
 """
@@ -101,7 +101,7 @@ def test_q7_ticket_module_and_handler_are_both_reachable(graph, now):
 def test_who_handles_a_module_most_derives_from_tickets(graph, now):
     """'Who knows this module?' is derived from tickets, ranked by count.
 
-    The design doc §3.7 derivation: handlers of tickets ABOUT a module, ordered
+    Derivation: handlers of tickets ABOUT a module, ordered
     by how many they handled. This must be a real aggregate, not a guess.
     """
     q = f"""

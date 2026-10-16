@@ -1,6 +1,6 @@
 """LLM-based extraction from free-text corpus sources.
 
-Pipeline per design doc §5:
+Pipeline:
   slice (doc by section / chat by topic window) -> LLM proposes candidate
   assertions (registered predicates only) -> validation (predicate registered,
   domain/range, evidence line exists, quote really on that line) -> ID

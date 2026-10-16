@@ -1,6 +1,6 @@
 """OnCall Brain graph schema: node labels and the controlled predicate registry.
 
-Per design doc §4: every business node carries :Entity; Evidence nodes do not.
+every business node carries :Entity; Evidence nodes do not.
 Unregistered predicates are rejected at ingest time and at query time.
 """
 from __future__ import annotations
