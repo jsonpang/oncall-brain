@@ -150,11 +150,12 @@ def ask():
     if not isinstance(question, str) or not 1 <= len(question.strip()) <= 4000:
         return jsonify(status="error", error="question must contain 1–4000 characters."), 400
     mode = payload.get("mode", "fast")
+    lang = payload.get("lang") if payload.get("lang") in ("zh", "en") else None
     trace = []
     if mode == "deep":
-        result = dict(agent.ask(question.strip(), trace=trace))
+        result = dict(agent.ask(question.strip(), trace=trace, lang=lang))
     else:
-        result = dict(fast.ask_fast(question.strip(), trace=trace))
+        result = dict(fast.ask_fast(question.strip(), trace=trace, lang=lang))
     result.setdefault("trace", trace)
     result["mode"] = "deep" if mode == "deep" else "fast"
     # Evidence and graph come from this question's own tool results (graph reads

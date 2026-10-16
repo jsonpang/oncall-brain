@@ -20,7 +20,7 @@ import re
 import time
 
 from . import tools
-from .agent import SYSTEM, MAX_CALLS, MAX_RELATION_QUERIES, _arg_str, _finalize, \
+from .agent import SYSTEM, LANG_NOTE, MAX_CALLS, MAX_RELATION_QUERIES, _arg_str, _finalize, \
     _openai_client, _templates_for
 from .citations import citation_pairs, compact_tool_result
 
@@ -101,7 +101,8 @@ def _jev_pick(question: str, cands: list[dict]) -> tuple[list[dict], str]:
     return cands[:4], "fulltext"
 
 
-def ask_fast(question: str, model: str | None = None, trace: list | None = None) -> dict:
+def ask_fast(question: str, model: str | None = None, trace: list | None = None,
+             lang: str | None = None) -> dict:
     t0 = time.perf_counter()
     timings: dict[str, float] = {}
     log: list[dict] = []
@@ -166,6 +167,8 @@ def ask_fast(question: str, model: str | None = None, trace: list | None = None)
     t = time.perf_counter()
     client = _openai_client()
     prompt = SYSTEM.format(max_calls=MAX_CALLS, max_rel=MAX_RELATION_QUERIES)
+    if lang in LANG_NOTE:
+        prompt += "\n" + LANG_NOTE[lang]
     evidence = json.dumps(tool_results, ensure_ascii=False, default=str)
     answer = ""
     for _ in range(2):

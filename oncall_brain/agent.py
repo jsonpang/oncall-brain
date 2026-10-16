@@ -68,6 +68,9 @@ ANSWER FORMAT: first line MUST be Status: <applicable|insufficient_context|confl
 Choose a status supported by tools relevant to the question. You may report
 not_found even when a tool returned unrelated applicable facts.
 Then use these markdown sections (omit a section only when empty):
+## Answer
+One or two sentences that directly answer the question asked -- the conclusion
+a reader can act on -- each ending with its citation. Omit when not_found.
 ## Next step
 Concrete action the asker should take now. Concrete names, paths, forms, deadlines.
 ## Basis
@@ -235,8 +238,13 @@ def _not_found_answer(question: str, log: list[dict], missing: list[str]) -> str
             + "\n- The retrieved evidence does not establish the requested answer.")
 
 
+LANG_NOTE = {"zh": ("Write the answer text in Simplified Chinese. Keep the markdown headings, the "
+                    "Status line, people's names, ids, paths, form and channel names, and every "
+                    "citation exactly as they are, in English.")}
+
+
 def ask(question: str, model: str | None = None, trace: list | None = None,
-        max_calls: int = MAX_CALLS) -> dict:
+        max_calls: int = MAX_CALLS, lang: str | None = None) -> dict:
     """Run the tool-calling loop for one question.
 
     `trace` (if given) collects the real call sequence: tool name, arguments,
@@ -246,7 +254,8 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
     model = model or os.environ.get("LLM_MODEL")
     messages = [
         {"role": "system",
-         "content": SYSTEM.format(max_calls=max_calls, max_rel=MAX_RELATION_QUERIES)},
+         "content": SYSTEM.format(max_calls=max_calls, max_rel=MAX_RELATION_QUERIES)
+         + ("\n" + LANG_NOTE[lang] if lang in LANG_NOTE else "")},
         {"role": "user", "content": question},
     ]
     log: list[dict] = []
