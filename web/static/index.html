@@ -11,6 +11,8 @@
   .headright{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.lang{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}.lang button{border:0;border-radius:0;padding:5px 11px;font-size:12px;background:transparent;color:var(--muted)}.lang button.on{background:var(--mint);color:#10261b;font-weight:650}.legend .root-dot{background:#ffd27a;width:11px;height:11px}
   .legend .cited-dot{background:#79dfb2;width:14px;height:4px;border-radius:2px}
   .conclusion{border:1px solid var(--mint);background:#13261f;border-radius:10px;padding:14px 16px;margin:14px 0 6px}.conclusion h3{margin:0 0 6px;font-size:13px;letter-spacing:1px;color:var(--mint)}.conclusion p{margin:4px 0;font-size:16px;line-height:1.65;color:#fff}.cite-n{padding:0 5px;margin:0 1px;font-size:10px;line-height:16px;vertical-align:super;border-radius:4px}.glossary{margin:10px 0 4px;font-size:12px;color:var(--muted)}.glossary summary{cursor:pointer;color:var(--blue)}.glossary dt{color:var(--text);font-weight:650;margin-top:8px}.glossary dd{margin:2px 0 0 0;line-height:1.6}.status-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  #proof-list{margin:6px 0 14px}#proof-list h4{margin:4px 0 6px;font-size:13px;color:var(--mint)}.proof-row{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;margin:4px 0;padding:7px 10px;background:#13261f;border-color:#2c5a48;font-size:13px}.proof-cite{color:var(--mint);font-size:11px;white-space:nowrap}.trace-why,.trace-result{margin:6px 0;font-size:12px;line-height:1.6;color:var(--muted)}.trace-result{color:var(--text)}.trace-why b,.trace-result b{color:var(--text)}.trace-card details summary{cursor:pointer;font-size:11px;color:var(--blue);margin-top:6px}.trace-howto{font-size:12px;line-height:1.65;color:var(--muted);border-left:2px solid var(--blue);padding:4px 10px;margin:0 0 4px}
+  .examples-box{margin:12px 0}.examples-box summary{cursor:pointer;font-size:12px;color:var(--blue);margin-bottom:8px}.examples{display:block;margin:0}.ex-group{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 8px}.ex-label{font-size:11px;color:var(--muted);width:100%;margin-top:2px}.ex-group button{font-size:12px;padding:5px 9px}
   </style>
 </head>
 <body>
@@ -18,7 +20,7 @@
 <main>
   <section aria-label="Ask and answer">
     <h2 data-i18n="h_ask"></h2>
-    <form id="ask-form"><label class="hint" for="question" data-i18n="ask_label"></label><textarea id="question" maxlength="4000" required data-i18n-ph="ask_ph"></textarea><div class="examples"><button type="button" data-example="Q1" data-i18n="ex_q1"></button><button type="button" data-example="Q4" data-i18n="ex_q4"></button><button type="button" data-example="Q15" data-i18n="ex_q15"></button></div><div class="askbar"><button class="primary" id="ask-button" type="submit" data-i18n="ask_btn"></button><label class="hint mode"><input type="checkbox" id="deep"> <span data-i18n="deep"></span></label></div><p class="hint" data-i18n="cited"></p></form>
+    <form id="ask-form"><label class="hint" for="question" data-i18n="ask_label"></label><textarea id="question" maxlength="4000" required data-i18n-ph="ask_ph"></textarea><details class="examples-box" open><summary data-i18n="examples"></summary><div class="examples" id="examples"></div></details><div class="askbar"><button class="primary" id="ask-button" type="submit" data-i18n="ask_btn"></button><label class="hint mode"><input type="checkbox" id="deep"> <span data-i18n="deep"></span></label></div><p class="hint" data-i18n="cited"></p></form>
     <div id="activity" class="hint" role="status" aria-live="polite"></div><div id="answer-status"></div><div id="status-source"></div><details id="glossary" class="glossary"></details>
     <article id="answer" aria-live="polite"><div class="empty" data-i18n="answer_empty"></div></article>
   </section>
@@ -26,7 +28,7 @@
     <div class="graph-head"><h2 data-i18n="h_graph"></h2><button id="fit" type="button" data-i18n="fit"></button></div>
     <div id="graph" role="img"></div>
     <div class="legend"><span><i class="cited-dot"></i><span data-i18n="lg_cited"></span></span><span><i class="root-dot"></i><span data-i18n="lg_root"></span></span><span><i class="node-dot"></i><span data-i18n="lg_entity"></span></span><span><i></i><span data-i18n="lg_rule"></span></span><span><i class="chat-dot"></i><span data-i18n="lg_chat"></span></span></div>
-    <p class="hint" id="graph-summary" data-i18n="graph_hint"></p>
+    <p class="hint" id="graph-summary" data-i18n="graph_hint"></p><div id="proof-list"></div>
     <form id="search-form" class="searchbar"><input id="search" aria-label="Search graph" data-i18n-ph="search_ph" maxlength="500" required><button type="submit" data-i18n="search"></button></form><div id="search-results"></div><div id="node-info"></div>
   </section>
   <section aria-label="Tool trace"><div class="graph-head"><h2 data-i18n="h_trace"></h2><button id="ontology" type="button" data-i18n="ontology"></button></div><div id="trace"><div class="empty" data-i18n="trace_empty"></div></div><p class="footnote" data-i18n="footnote"></p></section>
@@ -43,7 +45,7 @@ const I18N = {
     all_evidence:'全部返回证据', budget:'工具预算用尽（{r}），请留意回答中的缺项。', no_trace:'没有返回查询记录。', nodes_summary:'{n} 个节点 · {e} 条关系 · 点击节点展开', truncated:'关系查询已截断为 50 条路径。',
     cdn_fail:'图组件加载失败，请检查网络后刷新；回答和引用仍可使用。', busy_deep:'深度模式：模型正在一步步决定查询，约 1 分钟…', busy_fast:'正在查图，然后组装回答…',
     done:'完成 · {mode} · {steps} 步 · {ev} 条证据', timing:' · 查图+决策 {g} 秒，组装 {c} 秒，共 {t} 秒', mode_fast:'快速模式', mode_deep:'深度模式', not_found_entity:'not_found · 没找到实体', onto_title:'本体 / 受控工具契约',
-    status_src:'状态来源：{s} · 证据：本题查询结果', assertions:'条关系', lg_cited:'答案引用的关系（证明路径）', conclusion:'结论', sec_next:'下一步怎么做', sec_basis:'依据', sec_practice:'实际常见做法', sec_conflict:'冲突 / 已替代', sec_gaps:'资料缺口', sec_searched:'查过什么', sec_missing:'缺少什么', status_label:'答案状态', glossary:'名词解释（看不懂点这里）', st_applicable:'可直接照做', st_superseded:'规则已被新通知替代', st_conflict:'说法冲突 / 问题前提不成立', st_insufficient_context:'缺条件，需要你补充', st_not_found:'资料里没有答案', st_stale:'信息可能过期', proof:'亮起的 {e} 条边就是答案引用的关系，其余为本题读过但未引用的上下文。', no_proof:'这次答案没有引用图上的关系，只引用了原文行。'},
+    status_src:'状态来源：{s} · 证据：本题查询结果', assertions:'条关系', lg_cited:'答案引用的关系（证明路径）', conclusion:'结论', examples:'参考提问（17 题，点一下直接提问）', proves:'这张图证明了', raw:'原始参数与查询模板', trace_howto:'怎么用这份记录：答案看起来不对时，从上往下看是哪一步出了问题。候选里没有正确的实体，是搜索没搜到；候选里有但没被选中，是 Jev 判断错了；读到了但结论里没写，是大模型漏写了。每一步都能和左边结论里的出处对上。', why:'为什么', result:'结果', sec_next:'下一步怎么做', sec_basis:'依据', sec_practice:'实际常见做法', sec_conflict:'冲突 / 已替代', sec_gaps:'资料缺口', sec_searched:'查过什么', sec_missing:'缺少什么', status_label:'答案状态', glossary:'名词解释（看不懂点这里）', st_applicable:'可直接照做', st_superseded:'规则已被新通知替代', st_conflict:'说法冲突 / 问题前提不成立', st_insufficient_context:'缺条件，需要你补充', st_not_found:'资料里没有答案', st_stale:'信息可能过期', proof:'亮起的 {e} 条边就是答案引用的关系，其余为本题读过但未引用的上下文。', no_proof:'这次答案没有引用图上的关系，只引用了原文行。'},
   en: {tagline:'Graph Hacks / Evidence before action', live:'● READ-ONLY KNOWLEDGE GRAPH', h_ask:'01 / Ask your operations brain', ask_label:'Ask a question', ask_ph:'Where is the knowledge base? Who handles this ticket? Which rule is still in force?',
     ex_q1:'Q1 · Knowledge base owner', ex_q4:'Q4 · Channels to join', ex_q15:'Q15 · Who fixes the queue', ask_btn:'Ask Brain ↗', deep:'Deep mode: the model picks every query itself (slower, ~1 min)', cited:'Every claim is cited · click a citation to read the source',
     answer_empty:'Start with a real question. The answer, its evidence and the subgraph it came from appear here.', h_graph:'02 / Follow the evidence', fit:'Fit graph', lg_root:'Read for this answer', lg_entity:'Related entity', lg_rule:'Formal rule', lg_chat:'Chat / observation / practice',
@@ -52,11 +54,48 @@ const I18N = {
     all_evidence:'All returned evidence', budget:'Tool budget used up ({r}): check the answer for gaps.', no_trace:'No query trace returned.', nodes_summary:'{n} nodes · {e} assertions · click a node to expand', truncated:'Relation query truncated to 50 paths.',
     cdn_fail:'Graph component failed to load. Refresh after checking the network; answers and citations still work.', busy_deep:'Deep mode: the model is choosing queries step by step, about a minute...', busy_fast:'Querying the graph, then composing the answer...',
     done:'Done · {mode} · {steps} steps · {ev} evidence lines', timing:' · graph+decisions {g}s, compose {c}s, total {t}s', mode_fast:'fast mode', mode_deep:'deep mode', not_found_entity:'not_found · no matching entity', onto_title:'Ontology / controlled tool contract',
-    status_src:"Status source: {s} · Evidence: this question's own results", assertions:'assertions', lg_cited:'Relation cited by the answer (proof path)', conclusion:'Answer', sec_next:'Next step', sec_basis:'Basis', sec_practice:'Actual common practice', sec_conflict:'Conflicts / Superseded', sec_gaps:'Gaps', sec_searched:'Searched', sec_missing:'Missing', status_label:'Status', glossary:'Glossary', st_applicable:'safe to act on', st_superseded:'rule replaced by a newer notice', st_conflict:'sources disagree / premise is wrong', st_insufficient_context:'a condition is missing', st_not_found:'no answer in the material', st_stale:'may be out of date', proof:'The {e} lit edges are the relations the answer cites; the rest is context it read but did not cite.', no_proof:'This answer cites source lines only, no graph relation.'}
+    status_src:"Status source: {s} · Evidence: this question's own results", assertions:'assertions', lg_cited:'Relation cited by the answer (proof path)', conclusion:'Answer', examples:'Example questions (17, click to ask)', proves:'What this graph proves', raw:'Raw arguments and query templates', trace_howto:'How to use this trace: when an answer looks wrong, read top-down to find the step that failed. The right entity is missing from the candidates: search missed it. It is a candidate but not chosen: Jev misjudged. It was read but the answer leaves it out: the LLM dropped it. Every step lines up with the citations in the answer.', why:'Why', result:'Result', sec_next:'Next step', sec_basis:'Basis', sec_practice:'Actual common practice', sec_conflict:'Conflicts / Superseded', sec_gaps:'Gaps', sec_searched:'Searched', sec_missing:'Missing', status_label:'Status', glossary:'Glossary', st_applicable:'safe to act on', st_superseded:'rule replaced by a newer notice', st_conflict:'sources disagree / premise is wrong', st_insufficient_context:'a condition is missing', st_not_found:'no answer in the material', st_stale:'may be out of date', proof:'The {e} lit edges are the relations the answer cites; the rest is context it read but did not cite.', no_proof:'This answer cites source lines only, no graph relation.'}
 };
 let lang = 'zh', lastData = null;
 try { lang = localStorage.getItem('oncall-lang') || 'zh'; } catch(e) {}
 function t(key, vars={}) { return (I18N[lang][key] ?? I18N.en[key] ?? key).replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? ''); }
+const STEP = {
+  zh: {
+    source_lines: ['原文检索', '先在全部原始资料里找出和问题用词最接近的几行，防止正式文档里的关键句被漏掉。', s => `找到 ${s.source_evidence||0} 行相关原文`],
+    'decide (jev)': ['Jev 挑实体', '图里和问题沾边的实体很多，全读又慢又乱。让 Jev 给每个候选打分，只读最相关的几个。', (s,a) => `从 ${a.candidates?.length||0} 个候选里选了 ${a.chosen?.length||0} 个：${(a.chosen||[]).join('、')}`],
+    'decide (fulltext)': ['挑实体（未配置 Jev，按名称匹配度）', '图里候选太多，只读名称最匹配的几个。', (s,a) => `选了 ${a.chosen?.length||0} 个：${(a.chosen||[]).join('、')}`],
+    'decide hop (jev)': ['沿图走一步', '答案常常不在问题提到的实体本身，而在它的邻居上（比如模块的知识库）。让 Jev 从刚读到的邻居里再挑。', (s,a) => `从 ${a.neighbours||0} 个邻居里选了 ${a.chosen?.length||0} 个：${(a.chosen||[]).join('、')}`],
+    'decide hop (fulltext)': ['沿图走一步', '答案常在邻居上。', (s,a) => `选了 ${a.chosen?.length||0} 个`],
+    read_knowledge: ['读图', '读这个实体的全部关系，以及每条关系来自哪一行原文。结论只能用这里读到的内容。', (s,a) => `「${s.name||a.id}」：${s.assertions||0} 条关系${s.superseded?'，已被新规则替代':''}${s.conflicts?`，发现 ${s.conflicts} 处冲突`:''}`],
+    search_knowledge: ['搜索实体', '按名称在图里找可能相关的实体。', (s,a) => `搜「${a.query}」：${s.candidates||0} 个候选${s.source_evidence?`，${s.source_evidence} 行原文`:''}`],
+    query_relations: ['沿关系查询', '从一个实体出发，沿指定关系走 1–3 步。', (s,a) => `${s.paths||0} 条路径`],
+    describe_ontology: ['查看本体', '了解图里有哪些实体类型和关系。', () => '已读取'],
+  },
+  en: {
+    source_lines: ['Source-line search', 'Find the source lines closest to the question\'s words first, so key sentences in official docs are not missed.', s => `${s.source_evidence||0} related source lines`],
+    'decide (jev)': ['Jev picks entities', 'Many entities touch the question; reading all is slow and noisy. Jev scores each candidate and only the best are read.', (s,a) => `${a.chosen?.length||0} of ${a.candidates?.length||0} candidates: ${(a.chosen||[]).join(', ')}`],
+    'decide (fulltext)': ['Pick entities (no Jev key: name match)', 'Only the best name matches are read.', (s,a) => `${a.chosen?.length||0} chosen: ${(a.chosen||[]).join(', ')}`],
+    'decide hop (jev)': ['One hop further', 'The answer often sits on a neighbour (e.g. the module\'s knowledge base). Jev picks among the neighbours just read.', (s,a) => `${a.chosen?.length||0} of ${a.neighbours||0} neighbours: ${(a.chosen||[]).join(', ')}`],
+    'decide hop (fulltext)': ['One hop further', 'The answer often sits on a neighbour.', (s,a) => `${a.chosen?.length||0} chosen`],
+    read_knowledge: ['Read the graph', 'Read every relation of this entity and the source line behind each. The answer may only use what is read here.', (s,a) => `"${s.name||a.id}": ${s.assertions||0} relations${s.superseded?', superseded':''}${s.conflicts?`, ${s.conflicts} conflict(s)`:''}`],
+    search_knowledge: ['Search entities', 'Find candidate entities by name.', (s,a) => `"${a.query}": ${s.candidates||0} candidates${s.source_evidence?`, ${s.source_evidence} source lines`:''}`],
+    query_relations: ['Follow relations', 'Walk 1-3 hops along chosen relations.', (s,a) => `${s.paths||0} paths`],
+    describe_ontology: ['Read the ontology', 'Which entity kinds and relations exist.', () => 'read'],
+  }
+};
+// One sentence per cited edge: {s} = source node, {t} = target node.
+const REL = {
+  zh: {HAS_STEP:'「{s}」包含步骤「{t}」', GOVERNED_BY:'「{s}」要遵守「{t}」', MAINTAINED_BY:'「{s}」由 {t} 维护', TECH_LEAD_OF:'{s} 是「{t}」的技术负责人',
+       HAS_RESOURCE:'「{s}」的资料在「{t}」', MEMBER_OF:'{s} 属于 {t}', USES_RESOURCE:'「{s}」使用「{t}」', REQUIRES_FIELD:'「{s}」必须填写「{t}」',
+       SUPERSEDES:'「{s}」替代了「{t}」', APPLIES_TO:'「{s}」适用于「{t}」', PERFORMED_BY:'「{s}」由 {t} 执行', RECEIVED_BY:'「{s}」由 {t} 接收',
+       HOLDS_ROLE:'{s} 担任 {t}', EMPLOYED_BY:'{s} 受雇于 {t}', COVERS_TERRITORY:'{s} 负责区域 {t}', PRECEDES:'「{s}」在「{t}」之前',
+       PARALLEL_WITH:'「{s}」与「{t}」同时进行', ABOUT:'工单 {s} 涉及 {t}', HANDLED_BY:'工单 {s} 由 {t} 处理'},
+  en: {HAS_STEP:'"{s}" has the step "{t}"', GOVERNED_BY:'"{s}" is governed by "{t}"', MAINTAINED_BY:'"{s}" is maintained by {t}', TECH_LEAD_OF:'{s} is the tech lead of "{t}"',
+       HAS_RESOURCE:'"{s}" keeps its material in "{t}"', MEMBER_OF:'{s} is a member of {t}', USES_RESOURCE:'"{s}" uses "{t}"', REQUIRES_FIELD:'"{s}" requires the field "{t}"',
+       SUPERSEDES:'"{s}" supersedes "{t}"', APPLIES_TO:'"{s}" applies to "{t}"', PERFORMED_BY:'"{s}" is performed by {t}', RECEIVED_BY:'"{s}" is received by {t}',
+       HOLDS_ROLE:'{s} holds the role {t}', EMPLOYED_BY:'{s} is employed by {t}', COVERS_TERRITORY:'{s} covers {t}', PRECEDES:'"{s}" comes before "{t}"',
+       PARALLEL_WITH:'"{s}" runs alongside "{t}"', ABOUT:'Ticket {s} is about {t}', HANDLED_BY:'Ticket {s} was handled by {t}'}
+};
 const GLOSSARY = {
   zh: [
     ['答案状态', 'applicable 可直接照做；superseded 问到的规则已被新通知替代，会给出旧规则、新规则和生效日期；conflict 资料之间说法冲突，或问题本身的前提和资料矛盾；insufficient_context 规则带条件（如工单级别），需要你补充；not_found 资料里没有答案，系统只说查了什么、缺什么，不猜。'],
@@ -98,14 +137,42 @@ function applyLang() {
   document.querySelectorAll('[data-i18n-ph]').forEach(e => e.placeholder = t(e.dataset.i18nPh));
   document.querySelectorAll('[data-lang]').forEach(b => b.classList.toggle('on', b.dataset.lang === lang));
   renderGlossary();
+  renderExamples();
   if (lastData) renderAnswer(lastData);
 }
 document.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => { lang = b.dataset.lang; try { localStorage.setItem('oncall-lang', lang); } catch(e) {} applyLang(); }));
-const examples = {
-  Q1: "I'm a new frontline support engineer assigned to the Pipeline module. Where can I find our module knowledge base, and who maintains it?",
-  Q4: "Which operational communication channels must I join as a new support engineer, and what handle naming format should I use?",
-  Q15: "The Sentinel Desk dispatch queue for Mobile Build is rejecting tickets from Sunward Metro with 'Invalid Target Queue'. Should I ping Seraphina Lin to fix the queue configuration?"
+let examples = {};
+const GROUPS = [
+  {from: 1, to: 8, zh: '基础问题', en: 'Everyday questions'},
+  {from: 9, to: 11, zh: '规则已被替代', en: 'Superseded rules'},
+  {from: 12, to: 13, zh: '说法冲突', en: 'Conflicting statements'},
+  {from: 14, to: 15, zh: '前提错误：维护人 ≠ 负责人', en: 'Wrong premise: curator ≠ owner'},
+  {from: 16, to: 17, zh: '资料里没有答案', en: 'Not in the material'},
+];
+const QLABEL = {
+  zh: {1:'知识库在哪、谁维护', 2:'客户私聊的问题怎么登记', 3:'工单平台账号找谁开', 4:'新人要加哪些群', 5:'回复客户的话术规范', 6:'怎么升级到二线',
+       7:'P3 工单多久要响应', 8:'缺陷和需求怎么闭环', 9:'周报交到哪、几点截止', 10:'VPN 凭证会自动续期吗', 11:'流水线单步默认超时',
+       12:'编译被 OOM 杀掉怎么办', 13:'P3 真的有 4 小时吗', 14:'死锁了找 Wesley 杀进程？', 15:'队列报错找 Seraphina？', 16:'IoT 网关的访问令牌', 17:'没收录的报错码'},
+  en: {1:'Knowledge base & owner', 2:'Logging an off-ticket chat', 3:'Who activates my account', 4:'Channels to join', 5:'Customer reply standards', 6:'Escalating to Tier 2',
+       7:'P3 response deadline', 8:'Defects vs feature requests', 9:'Weekly report: where & when', 10:'Does the VPN token auto-renew', 11:'Default pipeline step timeout',
+       12:'Build killed by OOM', 13:'Is it really 4 hours for P3', 14:'Ask Wesley to kill the process?', 15:'Ask Seraphina to fix the queue?', 16:'IoT gateway access tokens', 17:'An unlisted error code'}
 };
+function renderExamples() {
+  const box = $('examples'); if (!box) return;
+  box.replaceChildren();
+  for (const g of GROUPS) {
+    const row = el('div', undefined, 'ex-group');
+    row.append(el('span', g[lang], 'ex-label'));
+    for (let n = g.from; n <= g.to; n++) {
+      if (!examples[`Q${n}`]) continue;
+      const b = el('button', `Q${n} · ${QLABEL[lang][n]}`); b.type = 'button'; b.dataset.example = `Q${n}`;
+      b.title = examples[`Q${n}`];
+      b.addEventListener('click', () => { if (busy) return; $('question').value = examples[`Q${n}`]; $('ask-form').requestSubmit(); });
+      row.append(b);
+    }
+    box.append(row);
+  }
+}
 const $ = id => document.getElementById(id);
 const el = (tag, text, cls) => { const e = document.createElement(tag); if(text !== undefined) e.textContent = text; if(cls) e.className = cls; return e; };
 const states = new Set(['applicable','conflict','superseded','insufficient_context','not_found','stale']);
@@ -168,9 +235,16 @@ function renderAnswer(data) {
   $('answer').append(details);
   if(data.stop_reason && data.stop_reason!=='completed') $('answer').append(el('p',t('budget',{r:data.stop_reason}),'hint'));
   for(const warning of data.warnings || []) $('answer').append(el('p',warning,'error'));
-  $('trace').replaceChildren();
+  $('trace').replaceChildren(el('p',t('trace_howto'),'trace-howto'));
   for(const [i,call] of (data.trace || []).entries()) {
-    const card=el('div',undefined,'trace-card'); card.append(el('div',`${i+1}. ${call.tool}`,'trace-title'),el('pre',JSON.stringify(call.args || {},null,2)),el('div',(call.template || []).join(' · '),'templates'),el('span',call.status || 'unknown','hint')); $('trace').append(card);
+    const st=STEP[lang][call.tool] || [call.tool, '', () => ''];
+    const card=el('div',undefined,'trace-card');
+    card.append(el('div',`${i+1}. ${st[0]}`,'trace-title'));
+    if(st[1]) { const w=el('p',undefined,'trace-why'); w.append(el('b',t('why')+'：'),document.createTextNode(st[1])); card.append(w); }
+    const res=st[2](call.summary || {}, call.args || {});
+    if(res) { const r=el('p',undefined,'trace-result'); r.append(el('b',t('result')+'：'),document.createTextNode(res)); card.append(r); }
+    const raw=el('details'); raw.append(el('summary',t('raw')),el('pre',JSON.stringify(call.args || {},null,2)),el('div',(call.template || []).join(' · '),'templates'));
+    card.append(raw); $('trace').append(card);
   }
   if(!data.trace?.length) $('trace').append(el('p',t('no_trace'),'hint'));
   graphRevision++; if(cy) { cy.elements().remove(); mergeGraph(data.graph || {nodes:[],edges:[]}); markProof(); }
@@ -183,6 +257,23 @@ function markProof() {
   if(!cy) return;
   cy.elements().removeClass('cited dim focus');
   const edges = citedEdges();
+  const list = $('proof-list'); list.replaceChildren();
+  if (edges.length) {
+    list.append(el('h4', t('proves')));
+    const seen = new Set();
+    edges.forEach(e => {
+      const name = id => { const n = cy.getElementById(id); return (n.data('label') || id).replace(/^\w+:/, '').replace(/_/g, ' '); };
+      const tpl = REL[lang][e.data('predicate')] || ('{s} ' + e.data('predicate') + ' {t}');
+      const text = tpl.replace('{s}', name(e.data('source'))).replace('{t}', name(e.data('target')));
+      if (seen.has(text)) return; seen.add(text);
+      const row = el('button', undefined, 'proof-row'); row.type = 'button';
+      row.append(el('span', text));
+      const nums = [...citeNumbers.entries()].filter(([txt]) => citations.some(c => c.text === txt && c.aid === e.data('aid'))).map(([, n]) => n);
+      if (nums.length) row.append(el('span', nums.map(n => `[${n}]`).join(''), 'proof-cite'));
+      row.onclick = () => focusCitation(e.data('aid'));
+      list.append(row);
+    });
+  }
   if(edges.length) {
     cy.elements().addClass('dim');
     edges.removeClass('dim').addClass('cited');
@@ -249,12 +340,12 @@ if(window.cytoscape) {
 } else { $('graph').append(el('p',t('cdn_fail'),'error')); }
 $('ask-form').addEventListener('submit',async event=>{
   event.preventDefault();if(busy || !$('question').value.trim())return;
-  busy=true;$('ask-button').disabled=true;document.querySelectorAll('[data-example]').forEach(b=>b.disabled=true);activity($('deep').checked?t('busy_deep'):t('busy_fast'));
+  busy=true;$('ask-button').disabled=true;document.querySelectorAll('[data-example]').forEach(b=>b.disabled=true);activity($('deep').checked?t('busy_deep'):t('busy_fast')); document.querySelector('.examples-box').open=false;
   try { const data=await api('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:$('question').value,mode:$('deep').checked?'deep':'fast',lang})});renderAnswer(data);const tm=data.timings; activity(t('done',{mode:t(data.mode==='deep'?'mode_deep':'mode_fast'),steps:data.trace?.length ?? data.tool_calls ?? 0,ev:data.evidence.length})+(tm?t('timing',{g:(tm.retrieve+tm.decide+tm.read+(tm.hop||0)).toFixed(1),c:tm.compose.toFixed(1),t:tm.total.toFixed(1)}):'')); }
   catch(error){activity(error.message,true);}
   finally{busy=false;$('ask-button').disabled=false;document.querySelectorAll('[data-example]').forEach(b=>b.disabled=false);}
 });
-document.querySelectorAll('[data-example]').forEach(button=>button.addEventListener('click',()=>{$('question').value=examples[button.dataset.example];$('ask-form').requestSubmit();}));
+fetch('/api/examples').then(r => r.json()).then(list => { for (const q of list) examples[`Q${q.qid}`] = q.question; renderExamples(); }).catch(() => {});
 $('search-form').onsubmit=async event=>{event.preventDefault();try{const data=await api(`/api/search?q=${encodeURIComponent($('search').value)}`);$('search-results').replaceChildren();for(const n of data.candidates || []){const b=el('button',`${n.name} · ${n.kind}`);b.onclick=()=>expandNode(n.id);$('search-results').append(b);}if(!data.candidates?.length)$('search-results').append(el('span',t('not_found_entity'),'hint'));}catch(error){activity(error.message,true);}};
 $('ontology').onclick=async()=>{try{const data=await api('/api/ontology');$('evidence-title').textContent=t('onto_title');$('evidence-meta').replaceChildren();$('evidence-text').textContent=JSON.stringify(data,null,2);$('evidence-dialog').showModal();}catch(error){activity(error.message,true);}};
 $('fit').onclick=()=>cy?.fit(undefined,30);

@@ -107,6 +107,15 @@ def index():
     return app.send_static_file("index.html")
 
 
+@app.get("/api/examples")
+@available
+def examples():
+    """The 17 gold-card questions, so the UI never keeps its own copy."""
+    from eval.run_gold import parse_gold
+    return jsonify([{"qid": q["qid"], "question": q["question"],
+                     "expected_status": q["expected_status"]} for q in parse_gold()])
+
+
 @app.get("/api/ontology")
 @available
 def ontology():

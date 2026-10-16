@@ -318,7 +318,8 @@ def ask(question: str, model: str | None = None, trace: list | None = None,
             entry = {"step": step + 1, "tool": name, "args": args,
                      "args_str": _arg_str(args),
                      "status": result.get("status"),
-                     "template": _templates_for(name, args, result)}
+                     "template": _templates_for(name, args, result),
+                     "summary": _summary(result)}
             log.append(entry)
             messages.append({"role": "tool", "tool_call_id": call.id,
                              "content": json.dumps(result, ensure_ascii=False,
@@ -409,6 +410,20 @@ def _finalize(question: str, answer: str, tool_results: list[dict], log: list[di
             "tool_results": tool_results, "answer_status": state,
             "tool_calls": len(log), "relation_queries": relation_queries,
             "stop_reason": stop_reason}
+
+
+def _summary(result: dict) -> dict:
+    """What a call returned, in counts a reader can check (shown in the trace)."""
+    out = {}
+    for key in ("candidates", "assertions", "paths", "source_evidence", "conflicts"):
+        if result.get(key):
+            out[key] = len(result[key])
+    entity = result.get("entity") or {}
+    if entity.get("name"):
+        out["name"] = entity["name"]
+    if result.get("superseded"):
+        out["superseded"] = True
+    return out
 
 
 def _templates_for(name: str, args: dict, result: dict) -> list[str]:

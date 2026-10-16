@@ -20,7 +20,7 @@ import re
 import time
 
 from . import tools
-from .agent import SYSTEM, LANG_NOTE, MAX_CALLS, MAX_RELATION_QUERIES, _arg_str, _finalize, \
+from .agent import SYSTEM, LANG_NOTE, MAX_CALLS, MAX_RELATION_QUERIES, _arg_str, _finalize, _summary, \
     _openai_client, _templates_for
 from .citations import citation_pairs, compact_tool_result
 
@@ -115,7 +115,8 @@ def ask_fast(question: str, model: str | None = None, trace: list | None = None,
         tool_results.append(result)
         log.append({"step": len(log) + 1, "tool": name, "args": args,
                     "args_str": _arg_str(args), "status": result.get("status"),
-                    "template": _templates_for(name, args, result)})
+                    "template": _templates_for(name, args, result),
+                    "summary": _summary(result)})
         return result
 
     pre = tools.related_source_lines(question)
