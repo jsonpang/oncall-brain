@@ -22,6 +22,13 @@ from .db import g
 VISIBLE = ("r.state = 'approved' AND r.valid_from <= $now "
            "AND (r.valid_to IS NULL OR r.valid_to > $now)")
 
+# A claim condition key that qualifies *what* the value is about (`violation`,
+# `violation_type`, `metric`, ...) rather than *when/where* it applies
+# (`environment`, `region`, ...). Values under different qualifiers are a scale
+# quoted per subject, not competing answers in one slot. See _qualifiers.
+_CONDITION_QUALIFIERS = re.compile(r"(?:^|_)(?:violation|violation_type|offense|item|metric|measure|category|level|severity|grade|tier|class|case|reason|kind|type)$",
+                                   re.I)
+
 TEMPLATES = {
     "fulltext_search": (
         "CALL db.idx.fulltext.queryNodes('Entity', $q) "
@@ -98,6 +105,31 @@ def _exclusive_values(left: dict, right: dict) -> bool:
     return bool(re.search(r"(?:^|_)(?:routing|owner|agent)$", pred) and lk == rk)
 
 
+def _qualifiers(c: dict) -> dict:
+    """Condition entries naming *what* a value is about, not when/where it holds.
+
+    `penalty_points` is the case that forces this: "-10 pts for closing without
+    user verification" and "-2 pts for typos" (one line,
+    corpus/chats/chat_2026-09-24.md:27) are one scale priced per violation, not
+    two competing answers. Only keys whose name marks them as a qualifier count
+    (see _CONDITION_QUALIFIERS); everything else keeps the previous behaviour, so
+    this can only remove comparisons, never invent them.
+    """
+    return {str(k): str(v) for k, v in (c.get("condition") or {}).items()
+            if _CONDITION_QUALIFIERS.search(str(k)) and str(v).strip()}
+
+
+def _different_measurement_subject(left: dict, right: dict) -> bool:
+    """True when two claims price/measure different things, so they cannot clash.
+
+    Both must be qualified: a bare "-5 pts" claim still disagrees with a
+    "-2 pts for typos" claim about the unqualified case, so it stays comparable
+    against every sub-slot rather than being filed under its own.
+    """
+    lq, rq = _qualifiers(left), _qualifiers(right)
+    return bool(lq) and bool(rq) and lq != rq
+
+
 def compare_claims(claims: list[dict], context: dict | None = None) -> list[dict]:
     """Compare one semantic slot only where equality conditions and dates overlap."""
     by_slot = {}
@@ -112,6 +144,8 @@ def compare_claims(claims: list[dict], context: dict | None = None) -> list[dict
         for i, left in enumerate(values):
             for right in values[i + 1:]:
                 if left["value"] == right["value"]:
+                    continue
+                if _different_measurement_subject(left, right):
                     continue
                 if not _exclusive_values(left, right):
                     continue
