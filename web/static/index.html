@@ -9,6 +9,7 @@
     :root{color-scheme:dark;--bg:#101419;--panel:#181e26;--line:#303b48;--text:#e5edf7;--muted:#a2afbf;--mint:#79dfb2;--blue:#8abaff;--amber:#f5c56c;--red:#ff939e}
     *{box-sizing:border-box}html,body{overflow-x:hidden}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 system-ui,sans-serif}button,input,textarea{font:inherit}button{cursor:pointer;border:1px solid var(--line);border-radius:7px;padding:8px 12px;background:#253140;color:var(--text)}button:hover{border-color:var(--mint)}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--mint);outline-offset:2px}header{padding:19px 25px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}h1{font-size:20px;margin:0;letter-spacing:-.5px}header p{margin:2px 0 0;color:var(--muted);font-size:12px}.brand{color:var(--mint)}.live{color:var(--mint);font-size:12px}main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1.1fr) minmax(0,.7fr);gap:1px;background:var(--line);min-height:calc(100vh - 89px)}section{padding:22px;background:var(--panel);min-width:0}h2{font-size:12px;letter-spacing:1.3px;color:var(--muted);text-transform:uppercase;margin:0 0 16px}.examples{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}.examples button{font-size:12px;padding:6px 9px}textarea,input{background:#111820;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:12px;width:100%}textarea{min-height:115px;resize:vertical}.askbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.mode{display:flex;align-items:center;gap:6px;cursor:pointer}.mode input{width:auto;margin:0}.primary{background:var(--mint);color:#10261b;font-weight:650;border-color:transparent}.hint{color:var(--muted);font-size:12px}#answer{margin-top:22px;overflow-wrap:anywhere}.answer-line{white-space:pre-wrap;margin:8px 0}.answer-heading{font-size:16px;color:#fff;margin:22px 0 9px}.badge{display:inline-block;padding:3px 9px;border-radius:5px;font-size:11px;border:1px solid currentColor;margin:3px 5px 3px 0}.applicable,.formal_rule{color:var(--mint)}.conflict,.not_found{color:var(--red)}.superseded,.stale{color:var(--muted)}.insufficient_context,.observation,.practice{color:var(--amber)}.citation{padding:2px 5px;margin:2px;font-size:11px;text-align:left;overflow-wrap:anywhere;max-width:100%;color:var(--mint);background:#162c27}.citation.chat{color:var(--amber);background:#31291a;border-style:dashed}.graph-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.graph-head h2{margin:0}#graph{height:470px;min-height:330px;border:1px solid var(--line);border-radius:9px;background:radial-gradient(ellipse at center,#202d36,#111820)}.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--muted);margin:10px 0 18px}.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;background:var(--mint)}.legend .chat-dot{background:var(--amber)}.legend .node-dot{background:var(--blue)}.searchbar{display:flex;gap:7px}.searchbar input{padding:8px}#search-results{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}#search-results button{font-size:12px}#node-info{white-space:pre-wrap;font-size:12px;color:var(--muted);overflow-wrap:anywhere}#trace{display:grid;gap:11px}.trace-card{border:1px solid var(--line);border-radius:8px;padding:12px}.trace-title{font:600 12px ui-monospace,monospace;color:var(--blue)}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.6 ui-monospace,monospace;color:var(--muted);margin:8px 0}.templates{color:var(--mint);font:11px/1.6 ui-monospace,monospace}.empty{border:1px dashed var(--line);padding:23px 16px;border-radius:8px;color:var(--muted);font-size:13px}dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;width:min(760px,92vw);max-height:85vh;padding:24px}dialog::backdrop{background:#000a}.dialog-head{display:flex;justify-content:space-between;gap:15px;align-items:start}#evidence-title{font-size:15px;overflow-wrap:anywhere}#evidence-text{font:14px/1.8 system-ui,sans-serif;color:var(--text);border-left:2px solid var(--mint);padding:14px;background:#111820}.error{color:var(--red)}#activity{min-height:20px;margin-top:9px}.footnote{font-size:11px;color:var(--muted);margin-top:16px}#status-source{font-size:11px;color:var(--muted)}@media(min-width:1450px){#graph{height:570px}}@media(max-width:1100px){main{grid-template-columns:1fr 1fr}section:last-child{grid-column:1/-1}#trace{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}}@media(max-width:720px){main{display:block}section{border-bottom:1px solid var(--line);padding:18px}header{padding:15px 18px}#graph{height:380px}.live{display:none}}
   .headright{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.lang{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}.lang button{border:0;border-radius:0;padding:5px 11px;font-size:12px;background:transparent;color:var(--muted)}.lang button.on{background:var(--mint);color:#10261b;font-weight:650}.legend .root-dot{background:#ffd27a;width:11px;height:11px}
+  .legend .cited-dot{background:#79dfb2;width:14px;height:4px;border-radius:2px}
   </style>
 </head>
 <body>
@@ -23,7 +24,7 @@
   <section aria-label="Knowledge graph">
     <div class="graph-head"><h2 data-i18n="h_graph"></h2><button id="fit" type="button" data-i18n="fit"></button></div>
     <div id="graph" role="img"></div>
-    <div class="legend"><span><i class="root-dot"></i><span data-i18n="lg_root"></span></span><span><i class="node-dot"></i><span data-i18n="lg_entity"></span></span><span><i></i><span data-i18n="lg_rule"></span></span><span><i class="chat-dot"></i><span data-i18n="lg_chat"></span></span></div>
+    <div class="legend"><span><i class="cited-dot"></i><span data-i18n="lg_cited"></span></span><span><i class="root-dot"></i><span data-i18n="lg_root"></span></span><span><i class="node-dot"></i><span data-i18n="lg_entity"></span></span><span><i></i><span data-i18n="lg_rule"></span></span><span><i class="chat-dot"></i><span data-i18n="lg_chat"></span></span></div>
     <p class="hint" id="graph-summary" data-i18n="graph_hint"></p>
     <form id="search-form" class="searchbar"><input id="search" aria-label="Search graph" data-i18n-ph="search_ph" maxlength="500" required><button type="submit" data-i18n="search"></button></form><div id="search-results"></div><div id="node-info"></div>
   </section>
@@ -41,7 +42,7 @@ const I18N = {
     all_evidence:'全部返回证据', budget:'工具预算用尽（{r}），请留意回答中的缺项。', no_trace:'没有返回查询记录。', nodes_summary:'{n} 个节点 · {e} 条关系 · 点击节点展开', truncated:'关系查询已截断为 50 条路径。',
     cdn_fail:'图组件加载失败，请检查网络后刷新；回答和引用仍可使用。', busy_deep:'深度模式：模型正在一步步决定查询，约 1 分钟…', busy_fast:'正在查图，然后组装回答…',
     done:'完成 · {mode} · {steps} 步 · {ev} 条证据', timing:' · 查图+决策 {g} 秒，组装 {c} 秒，共 {t} 秒', mode_fast:'快速模式', mode_deep:'深度模式', not_found_entity:'not_found · 没找到实体', onto_title:'本体 / 受控工具契约',
-    status_src:'状态来源：{s} · 证据：本题查询结果', assertions:'条关系'},
+    status_src:'状态来源：{s} · 证据：本题查询结果', assertions:'条关系', lg_cited:'答案引用的关系（证明路径）', proof:'亮起的 {e} 条边就是答案引用的关系，其余为本题读过但未引用的上下文。', no_proof:'这次答案没有引用图上的关系，只引用了原文行。'},
   en: {tagline:'Graph Hacks / Evidence before action', live:'● READ-ONLY KNOWLEDGE GRAPH', h_ask:'01 / Ask your operations brain', ask_label:'Ask a question', ask_ph:'Where is the knowledge base? Who handles this ticket? Which rule is still in force?',
     ex_q1:'Q1 · Knowledge base owner', ex_q4:'Q4 · Channels to join', ex_q15:'Q15 · Who fixes the queue', ask_btn:'Ask Brain ↗', deep:'Deep mode: the model picks every query itself (slower, ~1 min)', cited:'Every claim is cited · click a citation to read the source',
     answer_empty:'Start with a real question. The answer, its evidence and the subgraph it came from appear here.', h_graph:'02 / Follow the evidence', fit:'Fit graph', lg_root:'Read for this answer', lg_entity:'Related entity', lg_rule:'Formal rule', lg_chat:'Chat / observation / practice',
@@ -50,7 +51,7 @@ const I18N = {
     all_evidence:'All returned evidence', budget:'Tool budget used up ({r}): check the answer for gaps.', no_trace:'No query trace returned.', nodes_summary:'{n} nodes · {e} assertions · click a node to expand', truncated:'Relation query truncated to 50 paths.',
     cdn_fail:'Graph component failed to load. Refresh after checking the network; answers and citations still work.', busy_deep:'Deep mode: the model is choosing queries step by step, about a minute...', busy_fast:'Querying the graph, then composing the answer...',
     done:'Done · {mode} · {steps} steps · {ev} evidence lines', timing:' · graph+decisions {g}s, compose {c}s, total {t}s', mode_fast:'fast mode', mode_deep:'deep mode', not_found_entity:'not_found · no matching entity', onto_title:'Ontology / controlled tool contract',
-    status_src:"Status source: {s} · Evidence: this question's own results", assertions:'assertions'}
+    status_src:"Status source: {s} · Evidence: this question's own results", assertions:'assertions', lg_cited:'Relation cited by the answer (proof path)', proof:'The {e} lit edges are the relations the answer cites; the rest is context it read but did not cite.', no_proof:'This answer cites source lines only, no graph relation.'}
 };
 let lang = 'zh';
 try { lang = localStorage.getItem('oncall-lang') || 'zh'; } catch(e) {}
@@ -97,7 +98,7 @@ function appendCitations(parent, text) {
     button.type='button'; button.title=item?`${item.authority} · ${t('view_excerpt')}`:t('unmatched');
     button.dataset.matched=String(Boolean(item));
     if(!item)button.classList.add('error');
-    button.addEventListener('click',()=>showEvidence(item || {}, match[0])); parent.append(button);
+    button.addEventListener('click',()=>{focusCitation(citation.aid); showEvidence(item || {}, match[0]);}); parent.append(button);
     cursor=match.index+match[0].length;
   }
   parent.append(document.createTextNode(text.slice(cursor)));
@@ -123,7 +124,33 @@ function renderAnswer(data) {
     const card=el('div',undefined,'trace-card'); card.append(el('div',`${i+1}. ${call.tool}`,'trace-title'),el('pre',JSON.stringify(call.args || {},null,2)),el('div',(call.template || []).join(' · '),'templates'),el('span',call.status || 'unknown','hint')); $('trace').append(card);
   }
   if(!data.trace?.length) $('trace').append(el('p',t('no_trace'),'hint'));
-  graphRevision++; if(cy) { cy.elements().remove(); mergeGraph(data.graph || {nodes:[],edges:[]}); }
+  graphRevision++; if(cy) { cy.elements().remove(); mergeGraph(data.graph || {nodes:[],edges:[]}); markProof(); }
+}
+function citedEdges(aid) {
+  // Graph edges whose assertion id appears in the answer's citations.
+  return cy.edges().filter(e => aid ? e.data('aid') === aid : citations.some(c => c.aid === e.data('aid')));
+}
+function markProof() {
+  if(!cy) return;
+  cy.elements().removeClass('cited dim focus');
+  const edges = citedEdges();
+  if(edges.length) {
+    cy.elements().addClass('dim');
+    edges.removeClass('dim').addClass('cited');
+    edges.connectedNodes().removeClass('dim').addClass('cited');
+    $('graph-summary').textContent = t('proof', {e: edges.length});
+  } else if(citations.length) {
+    $('graph-summary').textContent = t('no_proof');
+  }
+}
+function focusCitation(aid) {
+  if(!cy) return;
+  const edges = citedEdges(aid);
+  if(!edges.length) return;
+  cy.elements().removeClass('focus');
+  edges.addClass('focus'); edges.connectedNodes().addClass('focus');
+  cy.animate({fit: {eles: edges.connectedNodes(), padding: 90}, duration: 350});
+  setTimeout(() => cy.elements().removeClass('focus'), 1600);
 }
 function mergeGraph(graph) {
   if(!cy) return;
@@ -156,6 +183,10 @@ if(window.cytoscape) {
     {selector:'node[superseded = true]',style:{opacity:.5}},
     {selector:'edge',style:{width:1.2,'line-color':'#4b6f68','target-arrow-color':'#4b6f68','target-arrow-shape':'triangle','arrow-scale':.8,'curve-style':'bezier',label:'data(label)','font-size':8,color:'#a2afbf','text-opacity':0,'text-rotation':'autorotate','text-background-color':'#111820','text-background-opacity':.85,'text-background-padding':2}},
     {selector:'edge.near',style:{'text-opacity':1,width:2,'line-color':'#79dfb2','target-arrow-color':'#79dfb2','z-index':20}},
+    {selector:'.dim',style:{opacity:.22}},
+    {selector:'edge.cited',style:{width:3.5,'line-color':'#79dfb2','target-arrow-color':'#79dfb2','line-style':'solid','text-opacity':1,'font-size':9,color:'#e5edf7','z-index':30,opacity:1}},
+    {selector:'node.cited',style:{'text-opacity':1,'border-width':3,'border-color':'#79dfb2','z-index':30,opacity:1}},
+    {selector:'.focus',style:{'line-color':'#ffffff','target-arrow-color':'#ffffff','border-color':'#ffffff',width:5}},
     {selector:'edge[authority = "observation"],edge[authority = "practice"]',style:{'line-color':'#f5c56c','target-arrow-color':'#f5c56c','line-style':'dashed'}},
     {selector:'edge[directed = false]',style:{'target-arrow-shape':'none'}},
     {selector:':selected',style:{'border-width':3,'border-color':'#fff'}}]});
