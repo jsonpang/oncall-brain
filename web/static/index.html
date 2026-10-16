@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>OnCall Brain · Graph-backed answers</title>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
+  <style>
+    :root{color-scheme:dark;--bg:#101419;--panel:#181e26;--line:#303b48;--text:#e5edf7;--muted:#a2afbf;--mint:#79dfb2;--blue:#8abaff;--amber:#f5c56c;--red:#ff939e}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 system-ui,sans-serif}button,input,textarea{font:inherit}button{cursor:pointer;border:1px solid var(--line);border-radius:7px;padding:8px 12px;background:#253140;color:var(--text)}button:hover{border-color:var(--mint)}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--mint);outline-offset:2px}header{padding:19px 25px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}h1{font-size:20px;margin:0;letter-spacing:-.5px}header p{margin:2px 0 0;color:var(--muted);font-size:12px}.brand{color:var(--mint)}.live{color:var(--mint);font-size:12px}main{display:grid;grid-template-columns:minmax(330px,1.15fr) minmax(360px,1.1fr) minmax(240px,.7fr);gap:1px;background:var(--line);min-height:calc(100vh - 89px)}section{padding:22px;background:var(--panel);min-width:0}h2{font-size:12px;letter-spacing:1.3px;color:var(--muted);text-transform:uppercase;margin:0 0 16px}.examples{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}.examples button{font-size:12px;padding:6px 9px}textarea,input{background:#111820;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:12px;width:100%}textarea{min-height:115px;resize:vertical}.askbar{display:flex;align-items:center;gap:12px}.primary{background:var(--mint);color:#10261b;font-weight:650;border-color:transparent}.hint{color:var(--muted);font-size:12px}#answer{margin-top:22px;overflow-wrap:anywhere}.answer-line{white-space:pre-wrap;margin:8px 0}.answer-heading{font-size:16px;color:#fff;margin:22px 0 9px}.badge{display:inline-block;padding:3px 9px;border-radius:5px;font-size:11px;border:1px solid currentColor;margin:3px 5px 3px 0}.applicable,.formal_rule{color:var(--mint)}.conflict,.not_found{color:var(--red)}.superseded,.stale{color:var(--muted)}.insufficient_context,.observation,.practice{color:var(--amber)}.citation{padding:2px 5px;margin:2px;font-size:11px;text-align:left;overflow-wrap:anywhere;max-width:100%;color:var(--mint);background:#162c27}.citation.chat{color:var(--amber);background:#31291a;border-style:dashed}.graph-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.graph-head h2{margin:0}#graph{height:470px;min-height:330px;border:1px solid var(--line);border-radius:9px;background:radial-gradient(ellipse at center,#202d36,#111820)}.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--muted);margin:10px 0 18px}.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;background:var(--mint)}.legend .chat-dot{background:var(--amber)}.legend .node-dot{background:var(--blue)}.searchbar{display:flex;gap:7px}.searchbar input{padding:8px}#search-results{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}#search-results button{font-size:12px}#node-info{white-space:pre-wrap;font-size:12px;color:var(--muted);overflow-wrap:anywhere}#trace{display:grid;gap:11px}.trace-card{border:1px solid var(--line);border-radius:8px;padding:12px}.trace-title{font:600 12px ui-monospace,monospace;color:var(--blue)}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.6 ui-monospace,monospace;color:var(--muted);margin:8px 0}.templates{color:var(--mint);font:11px/1.6 ui-monospace,monospace}.empty{border:1px dashed var(--line);padding:23px 16px;border-radius:8px;color:var(--muted);font-size:13px}dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;width:min(760px,92vw);max-height:85vh;padding:24px}dialog::backdrop{background:#000a}.dialog-head{display:flex;justify-content:space-between;gap:15px;align-items:start}#evidence-title{font-size:15px;overflow-wrap:anywhere}#evidence-text{font:14px/1.8 system-ui,sans-serif;color:var(--text);border-left:2px solid var(--mint);padding:14px;background:#111820}.error{color:var(--red)}#activity{min-height:20px;margin-top:9px}.footnote{font-size:11px;color:var(--muted);margin-top:16px}#status-source{font-size:11px;color:var(--muted)}@media(min-width:1450px){#graph{height:570px}}@media(max-width:1100px){main{grid-template-columns:1fr 1fr}section:last-child{grid-column:1/-1}#trace{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}}@media(max-width:720px){main{display:block}section{border-bottom:1px solid var(--line);padding:18px}header{padding:15px 18px}#graph{height:380px}.live{display:none}}
+  </style>
+</head>
+<body>
+<header><div><h1><span class="brand">◈</span> OnCall Brain</h1><p>Graph Hacks / Evidence before action</p></div><span class="live">● READ-ONLY KNOWLEDGE GRAPH</span></header>
+<main>
+  <section aria-label="Ask and answer">
+    <h2>01 / Ask your operations brain</h2>
+    <form id="ask-form"><label class="hint" for="question">描述遇到的问题 / Ask a question</label><textarea id="question" maxlength="4000" required placeholder="知识库在哪？工单该找谁？哪条规则仍有效？"></textarea><div class="examples"><button type="button" data-example="Q1">Q1 · 知识库与维护人</button><button type="button" data-example="Q4">Q4 · 入项沟通群</button><button type="button" data-example="Q15">Q15 · 队列找谁修</button></div><div class="askbar"><button class="primary" id="ask-button" type="submit">Ask Brain ↗</button><span class="hint">答案可追溯 · 引用可点击</span></div></form>
+    <div id="activity" class="hint" role="status" aria-live="polite"></div><div id="answer-status"></div><div id="status-source"></div>
+    <article id="answer" aria-live="polite"><div class="empty">从一个真实问题开始。回答、证据与关系图将在这里连接起来。</div></article>
+  </section>
+  <section aria-label="Knowledge graph">
+    <div class="graph-head"><h2>02 / Follow the evidence</h2><button id="fit" type="button">Fit graph</button></div>
+    <div id="graph" role="img" aria-label="回答涉及的知识子图，点击节点可展开邻居"></div>
+    <div class="legend"><span><i class="node-dot"></i>实体节点</span><span><i></i>正式规则</span><span><i class="chat-dot"></i>聊天 / observation / practice</span></div>
+    <p class="hint" id="graph-summary">点击节点展开一跳邻居，箭头表示真实关系方向。</p>
+    <form id="search-form" class="searchbar"><input id="search" aria-label="Search graph" placeholder="搜索图谱实体，例如 Pipeline" maxlength="500" required><button type="submit">Search</button></form><div id="search-results"></div><div id="node-info"></div>
+  </section>
+  <section aria-label="Tool trace"><div class="graph-head"><h2>03 / Tool call trace</h2><button id="ontology" type="button">Ontology</button></div><div id="trace"><div class="empty">等待提问。这里会展示实际工具调用的参数和 Cypher 模板名。</div></div><p class="footnote">模型只选择受控工具；查询由服务端模板生成。</p></section>
+</main>
+<dialog id="evidence-dialog"><div class="dialog-head"><strong id="evidence-title">Evidence</strong><button id="close-dialog" type="button" aria-label="Close evidence">✕</button></div><div id="evidence-meta"></div><pre id="evidence-text"></pre></dialog>
+<script>
+'use strict';
+const examples = {
+  Q1: "I'm a new frontline support engineer assigned to the Pipeline module. Where can I find our module knowledge base, and who maintains it?",
+  Q4: "Which operational communication channels must I join as a new support engineer, and what handle naming format should I use?",
+  Q15: "The Sentinel Desk dispatch queue for Mobile Build is rejecting tickets from Sunward Metro with 'Invalid Target Queue'. Should I ping Seraphina Lin to fix the queue configuration?"
+};
+const $ = id => document.getElementById(id);
+const el = (tag, text, cls) => { const e = document.createElement(tag); if(text !== undefined) e.textContent = text; if(cls) e.className = cls; return e; };
+const states = new Set(['applicable','conflict','superseded','insufficient_context','not_found','stale']);
+let evidence = [], citations = [], cy = null, busy = false, graphRevision = 0;
+async function api(path, options) {
+  const response = await fetch(path, options);
+  const data = await response.json();
+  if(!response.ok) throw new Error(data.error || data.note || 'Request failed');
+  return data;
+}
+function activity(message, error=false) { $('activity').textContent=message; $('activity').className=error?'error':'hint'; }
+function showEvidence(item, label) {
+  $('evidence-title').textContent=label || `${item.source}:${item.locator}`;
+  $('evidence-meta').replaceChildren(el('span', item.authority || 'unknown', `badge ${item.authority || ''}`));
+  $('evidence-text').textContent=item.excerpt || '当前工具结果中没有此引用的摘录。请核对原始引用，不能据此认定已有证据。';
+  $('evidence-dialog').showModal();
+}
+function appendCitations(parent, text) {
+  const pattern=/\[[^\]\n]+\]/g;
+  let cursor=0;
+  for(const match of text.matchAll(pattern)) {
+    const citation=citations.find(c=>c.text===match[0]);
+    if(!citation)continue;
+    parent.append(document.createTextNode(text.slice(cursor,match.index)));
+    const item=evidence.find(e=>e.id===citation.evidence_id);
+    const button=el('button',match[0],`citation ${item && (item.authority!=='formal_rule' || /(?:^|\/)chats\//.test(item.source))?'chat':''}`);
+    button.type='button'; button.title=item?`${item.authority} · 查看原文摘录`:'引用未匹配，点击查看说明';
+    button.dataset.matched=String(Boolean(item));
+    if(!item)button.classList.add('error');
+    button.addEventListener('click',()=>showEvidence(item || {}, match[0])); parent.append(button);
+    cursor=match.index+match[0].length;
+  }
+  parent.append(document.createTextNode(text.slice(cursor)));
+}
+function renderAnswer(data) {
+  evidence=data.evidence || [];
+  citations=data.citations || [];
+  const state=states.has(data.status)?data.status:'insufficient_context';
+  $('answer-status').replaceChildren(el('span',state,`badge ${state}`));
+  $('status-source').textContent=`Status source: ${data.status_source || 'unknown'} · Evidence: read-only trace replay`;
+  $('answer').replaceChildren();
+  for(const line of (data.answer || '没有返回回答。').split('\n')) {
+    const heading=/^#{1,6}\s+/.test(line), p=el(heading?'h3':'p',undefined,heading?'answer-heading':'answer-line');
+    appendCitations(p,line.replace(/^#{1,6}\s+/,'')); $('answer').append(p);
+  }
+  const details=el('details'); details.append(el('summary',`全部返回证据 / ${evidence.length}`));
+  for(const item of evidence){const button=el('button',`${item.source}:${item.locator} · ${item.authority}`,`citation ${item.authority==='formal_rule'?'':'chat'}`);button.type='button';button.onclick=()=>showEvidence(item);details.append(button);}
+  $('answer').append(details);
+  if(data.stop_reason && data.stop_reason!=='completed') $('answer').append(el('p',`工具预算 / ${data.stop_reason}，请检查回答中的缺项。`,'hint'));
+  for(const warning of data.warnings || []) $('answer').append(el('p',warning,'error'));
+  $('trace').replaceChildren();
+  for(const [i,call] of (data.trace || []).entries()) {
+    const card=el('div',undefined,'trace-card'); card.append(el('div',`${i+1}. ${call.tool}`,'trace-title'),el('pre',JSON.stringify(call.args || {},null,2)),el('div',(call.template || []).join(' · '),'templates'),el('span',call.status || 'unknown','hint')); $('trace').append(card);
+  }
+  if(!data.trace?.length) $('trace').append(el('p','没有返回工具调用轨迹。','hint'));
+  graphRevision++; if(cy) { cy.elements().remove(); mergeGraph(data.graph || {nodes:[],edges:[]}); }
+}
+function mergeGraph(graph) {
+  if(!cy) return;
+  cy.batch(()=>{
+    for(const n of graph.nodes){const existing=cy.getElementById(n.id), data={...n,label:n.name || n.id}; if(existing.length) existing.data(data); else cy.add({group:'nodes',data});}
+    for(const e of graph.edges){if(!cy.getElementById(e.id).length)cy.add({group:'edges',data:{...e,label:e.predicate}});}
+  });
+  cy.layout({name:'cose',animate:false,idealEdgeLength:130,nodeRepulsion:10000,padding:25}).run();
+  $('graph-summary').textContent=`${cy.nodes().length} nodes · ${cy.edges().length} assertions · 点击节点展开邻居`;
+}
+async function expandNode(id) {
+  const revision=graphRevision;
+  try {
+    const [node,neighbors]=await Promise.all([api(`/api/node/${encodeURIComponent(id)}`),api(`/api/neighbors/${encodeURIComponent(id)}`)]);
+    if(revision!==graphRevision)return;
+    mergeGraph(neighbors.graph);
+    const unique=new Map(evidence.map(e=>[e.id,e]));for(const item of node.evidence || [])unique.set(item.id,item);evidence=[...unique.values()];
+    $('node-info').replaceChildren(el('strong',node.entity.name || id),el('p',`${id} · ${node.entity.kind} · ${node.assertions.length} assertions`));
+    for(const item of node.evidence || []) {const b=el('button',`${item.source}:${item.locator}`,`citation ${item.authority==='formal_rule'?'':'chat'}`);b.onclick=()=>showEvidence(item);$('node-info').append(b);}
+    if(neighbors.truncated)$('node-info').append(el('p','关系查询已截断为 50 条路径。','hint'));
+  } catch(error) { activity(error.message,true); }
+}
+if(window.cytoscape) {
+  cy=cytoscape({container:$('graph'),elements:[],style:[
+    {selector:'node',style:{label:'data(label)','background-color':'#8abaff',color:'#e5edf7','font-size':10,'text-wrap':'wrap','text-max-width':100,'text-valign':'bottom','text-margin-y':7,width:25,height:25}},
+    {selector:'node[kind = "Person"]',style:{'background-color':'#bdadff'}},
+    {selector:'node[kind = "Rule"]',style:{'background-color':'#79dfb2',shape:'round-rectangle'}},
+    {selector:'node[superseded = true]',style:{opacity:.5}},
+    {selector:'edge',style:{width:1.5,'line-color':'#5f8b81','target-arrow-color':'#5f8b81','target-arrow-shape':'triangle','curve-style':'bezier',label:'data(label)','font-size':8,color:'#a2afbf','text-rotation':'autorotate','text-background-color':'#111820','text-background-opacity':.85,'text-background-padding':2}},
+    {selector:'edge[authority = "observation"],edge[authority = "practice"]',style:{'line-color':'#f5c56c','target-arrow-color':'#f5c56c','line-style':'dashed'}},
+    {selector:'edge[directed = false]',style:{'target-arrow-shape':'none'}},
+    {selector:':selected',style:{'border-width':3,'border-color':'#fff'}}]});
+  cy.on('tap','node',event=>expandNode(event.target.id()));
+} else { $('graph').append(el('p','图组件 CDN 加载失败。请检查网络后刷新；回答和引用仍可使用。','error')); }
+$('ask-form').addEventListener('submit',async event=>{
+  event.preventDefault();if(busy || !$('question').value.trim())return;
+  busy=true;$('ask-button').disabled=true;document.querySelectorAll('[data-example]').forEach(b=>b.disabled=true);activity('正在查询图谱并组织回答，可能需要一分钟…');
+  try { const data=await api('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:$('question').value})});renderAnswer(data);activity(`完成 · ${data.tool_calls ?? data.trace?.length ?? 0} 次工具调用 · ${data.evidence.length} 条证据`); }
+  catch(error){activity(error.message,true);}
+  finally{busy=false;$('ask-button').disabled=false;document.querySelectorAll('[data-example]').forEach(b=>b.disabled=false);}
+});
+document.querySelectorAll('[data-example]').forEach(button=>button.addEventListener('click',()=>{$('question').value=examples[button.dataset.example];$('ask-form').requestSubmit();}));
+$('search-form').onsubmit=async event=>{event.preventDefault();try{const data=await api(`/api/search?q=${encodeURIComponent($('search').value)}`);$('search-results').replaceChildren();for(const n of data.candidates || []){const b=el('button',`${n.name} · ${n.kind}`);b.onclick=()=>expandNode(n.id);$('search-results').append(b);}if(!data.candidates?.length)$('search-results').append(el('span','not_found · 未找到实体','hint'));}catch(error){activity(error.message,true);}};
+$('ontology').onclick=async()=>{try{const data=await api('/api/ontology');$('evidence-title').textContent='Ontology / 受控工具契约';$('evidence-meta').replaceChildren();$('evidence-text').textContent=JSON.stringify(data,null,2);$('evidence-dialog').showModal();}catch(error){activity(error.message,true);}};
+$('fit').onclick=()=>cy?.fit(undefined,30);
+$('close-dialog').onclick=()=>$('evidence-dialog').close();
+</script>
+</body>
+</html>

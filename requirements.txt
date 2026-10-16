@@ -2,3 +2,4 @@ falkordb>=1.0.0
 mcp>=2.0.0
 openai>=1.0.0
 python-dotenv>=1.0.0
+Flask==3.1.2
