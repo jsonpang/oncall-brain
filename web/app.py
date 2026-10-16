@@ -8,9 +8,6 @@ from threading import Thread
 import re
 from functools import wraps
 
-# A safe demo default, before db.py loads .env. Explicit configuration still wins.
-os.environ.setdefault("GRAPH_NAME", "oncall_brain")
-
 from flask import Flask, Response, jsonify, request  # noqa: E402
 from oncall_brain import agent, fast, tools  # noqa: E402
 
