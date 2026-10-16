@@ -187,6 +187,9 @@ def ask():
         result["status"], result["status_source"] = "insufficient_context", "citation_validation"
     result["evidence_origin"] = "tool_results"
     result["warnings"] = warnings
+    # Owner vs who has actually handled the module (module_expertise), for the UI card.
+    result["expertise"] = [{k: data.get(k) for k in ("start_id", "owners", "handlers", "evidence")}
+                           for data in readbacks if data.get("handlers")]
     result.pop("tool_results", None)
     return jsonify(result)
 

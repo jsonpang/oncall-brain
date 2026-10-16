@@ -19,6 +19,7 @@
   .proof-item{margin:6px 0 10px}.proof-sentence{margin:0 0 4px;font-size:13px;color:var(--text);line-height:1.55}.proof-textonly{margin:2px 0 0;font-size:12px;color:var(--amber);padding-left:10px;border-left:2px solid var(--amber)}
   .gctl{display:flex;gap:6px;flex-wrap:wrap}.gctl button{padding:6px 10px}.gnav{margin:-4px 0 8px;font-size:11px}.legend .lg-title{color:var(--text);font-weight:600}.legend span{display:inline-flex;align-items:center;gap:5px}.legend-kinds{margin-bottom:4px}.trace-use{margin:6px 0;font-size:12px;color:var(--text)}.trace-use b{display:block;margin-bottom:4px}.trace-card.unused{opacity:.55}.trace-card.unused .trace-use{color:var(--muted)}
   .tabs{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.tabs button{border:0;border-radius:0;padding:7px 13px;background:transparent;color:var(--muted)}.tabs button.on{background:var(--mint);color:#10261b;font-weight:650}#path{height:420px;border:1px solid var(--line);border-radius:9px;background:#111820;margin:6px 0 12px;position:relative}#path .empty{position:absolute;inset:16px;display:grid;place-items:center;text-align:center}.cite-n{cursor:pointer;text-decoration:underline}.cite-hint{margin:8px 0 0;font-size:12px}.conclusion.conflict{border-color:var(--amber);background:#2b2414}.conclusion.conflict h3{color:var(--amber)}.conclusion.superseded{border-color:var(--blue);background:#15202f}.conclusion.superseded h3{color:var(--blue)}.conclusion.not_found{border-color:var(--muted);background:#1a1f26}.conclusion.not_found h3{color:var(--muted)}#trace-box summary{cursor:pointer;color:var(--blue);font-size:13px;margin-bottom:10px}#q-label{margin:6px 0 0;color:var(--amber)}
+  .expertise-card{border:1px solid var(--line);border-radius:8px;padding:12px;margin:10px 0;font-size:12px}.expertise-card h3{margin:0 0 8px;font-size:13px;color:var(--mint)}.expertise-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.expertise-columns h4{margin:0 0 6px;color:var(--muted);font-size:12px}.expertise-columns p{margin:6px 0}.expertise-outside{display:inline-block;border-radius:4px;padding:1px 5px;margin-left:5px;background:var(--line);color:var(--muted);font-size:11px}
   </style>
 </head>
 <body>
@@ -52,7 +53,7 @@
 <script>
 'use strict';
 const I18N = {
-  zh: {tagline:'Graph Hacks / 先看证据，再行动', live:'● 只读知识图谱', h_ask:'01 / 向运维大脑提问', ask_label:'描述遇到的问题', ask_ph:'知识库在哪？工单该找谁？哪条规则仍有效？（建议用英文提问，语料是英文）',
+  zh: {expertise_title:'负责人 vs 实际修过的人', expertise_owners:'负责人', expertise_handlers:'实际修过的人', expertise_lead:'技术负责人', expertise_count:'处理过 {n} 张工单：', expertise_outside:'不在负责人名单', expertise_no_owner:'未返回负责人', tagline:'Graph Hacks / 先看证据，再行动', live:'● 只读知识图谱', h_ask:'01 / 向运维大脑提问', ask_label:'描述遇到的问题', ask_ph:'知识库在哪？工单该找谁？哪条规则仍有效？（建议用英文提问，语料是英文）',
     ex_q1:'Q1 · 知识库与维护人', ex_q4:'Q4 · 新人要加的群', ex_q15:'Q15 · 队列故障找谁修', ask_btn:'提问 ↗', deep:'深度模式：由模型逐步决定每次查询（较慢，约 1 分钟）', cited:'每条结论都带出处 · 点击引用查看原文',
     answer_empty:'从一个真实问题开始。回答、证据和它来自的子图会在这里连起来。', h_graph:'02 / 顺着证据看图', fit:'适配视图', lg_root:'本题读取的实体', lg_entity:'相关实体', lg_rule:'正式规则', lg_chat:'聊天 / 观察 / 惯例',
     graph_hint:'点击节点展开一跳邻居；悬停或放大可看名称，箭头是真实关系方向。', search_ph:'搜索图谱实体，例如 Pipeline', search:'搜索', h_trace:'03 / 每一步的查询记录', ontology:'本体', trace_empty:'等待提问。这里会展示每一步实际的查询、参数和用到的 Cypher 模板。',
@@ -61,7 +62,7 @@ const I18N = {
     cdn_fail:'图组件加载失败，请检查网络后刷新；回答和引用仍可使用。', busy_deep:'深度模式：模型正在一步步决定查询，约 1 分钟…', busy_fast:'正在查图，然后组装回答…',
     done:'完成 · {mode} · {steps} 步 · {ev} 条证据', timing:' · 查图+决策 {g} 秒，组装 {c} 秒，共 {t} 秒', mode_fast:'快速模式', mode_deep:'深度模式', not_found_entity:'not_found · 没找到实体', onto_title:'本体 / 受控工具契约',
     status_src:'状态来源：{s} · 证据：本题查询结果', assertions:'条关系', lg_cited:'答案引用的关系（证明路径）', conclusion:'结论', conclusion_conflict:'注意：说法冲突 / 问题前提不成立', conclusion_superseded:'结论（规则已更新，旧规则作废）', conclusion_not_found:'资料里没有答案', conclusion_insufficient_context:'结论（还缺一个条件）', cite_hint:'点结论里的小编号，可以看到这句话的原文出处。', tab_path:'答案路径', tab_explore:'探索全图', path_hint:'从左往右读：你的问题 → 查到的事实 → 结论。每个方块是一个实体（写着它是什么），箭头上是关系。点箭头看原文。', path_empty:'提问后，这里会画出支撑结论的那几条事实。', path_none:'这次结论只引用了原文，没有用到图上的关系。', your_q:'你的问题', found:'查到', expired:'已失效', proof_hint:'点任一条，左侧答案路径里对应的箭头会高亮。', trace_sum:'查询过程（共 {n} 步，想深究再展开）', you_asked:'你问的是：{q}', lg_nodes:'点 = 实体：', lg_edges:'线 = 关系（线上的字是关系名）：', k_person:'人 / 团队 / 角色', k_module:'模块', k_rule:'规则 / 通知', k_resource:'文档 / 频道 / 表单', k_procedure:'流程 / 步骤 / 工单', fit_proof:'回到证明路径', gnav:'拖动可平移；按住 Ctrl 滚动滚轮缩放（直接滚轮是滚动页面）；悬停节点看名称和关系，点击节点展开邻居。', read_why_jev:'Jev 判断它和问题相关（打分 {p}），所以读它。', read_why_hop:'它是上一步实体的邻居，Jev 判断答案可能在它身上（打分 {p}）。', read_why_model:'大模型自己决定读它。', read_got:'读到 {n} 条关系。', read_used:'对结论的贡献：结论引用了它的 {n} 条关系', read_unused:'对结论的贡献：没有用上（读了但结论没引用，图上已调暗）。', examples:'参考提问（17 题，点一下直接提问）', proves:'结论的每一句，依据是什么', by_graph:'图上的关系', by_text:'只有原文支撑，图中没有对应关系', text_line:'原文', raw:'原始参数与查询模板', trace_howto:'怎么用这份记录：答案看起来不对时，从上往下看是哪一步出了问题。候选里没有正确的实体，是搜索没搜到；候选里有但没被选中，是 Jev 判断错了；读到了但结论里没写，是大模型漏写了。每一步都能和左边结论里的出处对上。', why:'为什么', result:'结果', sec_next:'下一步怎么做', sec_basis:'依据', sec_practice:'实际常见做法', sec_conflict:'冲突 / 已替代', sec_gaps:'资料缺口', sec_searched:'查过什么', sec_missing:'缺少什么', status_label:'答案状态', glossary:'名词解释（看不懂点这里）', st_applicable:'可直接照做', st_superseded:'规则已被新通知替代', st_conflict:'说法冲突 / 问题前提不成立', st_insufficient_context:'缺条件，需要你补充', st_not_found:'资料里没有答案', st_stale:'信息可能过期', proof:'亮起的 {e} 条边就是答案引用的关系，其余为本题读过但未引用的上下文。', no_proof:'这次答案没有引用图上的关系，只引用了原文行。'},
-  en: {tagline:'Graph Hacks / Evidence before action', live:'● READ-ONLY KNOWLEDGE GRAPH', h_ask:'01 / Ask your operations brain', ask_label:'Ask a question', ask_ph:'Where is the knowledge base? Who handles this ticket? Which rule is still in force?',
+  en: {expertise_title:'Owner vs who has actually fixed it', expertise_owners:'Owner', expertise_handlers:'Who has actually fixed it', expertise_lead:'Tech lead', expertise_count:'Handled {n} tickets: ', expertise_outside:'Not on the owner list', expertise_no_owner:'No owner returned', tagline:'Graph Hacks / Evidence before action', live:'● READ-ONLY KNOWLEDGE GRAPH', h_ask:'01 / Ask your operations brain', ask_label:'Ask a question', ask_ph:'Where is the knowledge base? Who handles this ticket? Which rule is still in force?',
     ex_q1:'Q1 · Knowledge base owner', ex_q4:'Q4 · Channels to join', ex_q15:'Q15 · Who fixes the queue', ask_btn:'Ask Brain ↗', deep:'Deep mode: the model picks every query itself (slower, ~1 min)', cited:'Every claim is cited · click a citation to read the source',
     answer_empty:'Start with a real question. The answer, its evidence and the subgraph it came from appear here.', h_graph:'02 / Follow the evidence', fit:'Fit graph', lg_root:'Read for this answer', lg_entity:'Related entity', lg_rule:'Formal rule', lg_chat:'Chat / observation / practice',
     graph_hint:'Click a node to expand its neighbours; hover or zoom in to see names. Arrows show the real relation direction.', search_ph:'Search graph entities, e.g. Pipeline', search:'Search', h_trace:'03 / Query trace', ontology:'Ontology', trace_empty:'Waiting for a question. Every real query, its arguments and the Cypher templates it ran appear here.',
@@ -96,7 +97,7 @@ const STEP = {
     read_knowledge: ['Read the graph', 'Read every relation of this entity and the source line behind each. The answer may only use what is read here.', (s,a) => `"${s.name||a.id}": ${s.assertions||0} relations${s.superseded?', superseded':''}${s.conflicts?`, ${s.conflicts} conflict(s)`:''}`],
     search_knowledge: ['Search entities', 'Find candidate entities by name.', (s,a) => `"${a.query}": ${s.candidates||0} candidates${s.source_evidence?`, ${s.source_evidence} source lines`:''}`],
     query_relations: ['Follow relations', 'Walk 1-3 hops along chosen relations.', (s,a) => `${s.paths||0} paths`],
-    module_expertise: ['Who has actually fixed it', 'The listed owner is not always the one who knows. Two hops, Ticket -> about module and Ticket -> handled by, find who has actually handled this module's tickets.', (s,a) => `"${a.module_id}": ${s.handlers||0} people have handled its tickets`],
+    module_expertise: ['Who has actually fixed it', 'The listed owner is not always the one who knows. Two hops, Ticket -> about module and Ticket -> handled by, find who has actually handled this module\'s tickets.', (s,a) => `"${a.module_id}": ${s.handlers||0} people have handled its tickets`],
     describe_ontology: ['Read the ontology', 'Which entity kinds and relations exist.', () => 'read'],
   }
 };
@@ -286,6 +287,42 @@ function appendCitations(parent, text) {
   }
   parent.append(document.createTextNode(text.slice(cursor)));
 }
+function renderExpertise(data) {
+  const results=(data.expertise || []).filter(r=>r.handlers?.length && r.owners && r.start_id);
+  if(!results.length) return;
+  const card=el('div',undefined,'expertise-card');
+  card.append(el('h3',t('expertise_title')));
+  for(const result of results) {
+    if(results.length>1) card.append(el('p',result.start_id,'hint'));
+    const columns=el('div',undefined,'expertise-columns');
+    const owners=el('div'), handlers=el('div');
+    owners.append(el('h4',t('expertise_owners')));
+    handlers.append(el('h4',t('expertise_handlers')));
+    const names=[...new Set(result.owners.map(o=>o.name || o.id))];
+    for(const name of names) {
+      const row=el('p',name); row.append(el('span',t('expertise_lead'),'badge')); owners.append(row);
+    }
+    if(!names.length) owners.append(el('p',t('expertise_no_owner'),'hint'));
+    for(const handler of result.handlers) {
+      const row=el('p'); row.append(el('strong',handler.name || handler.id));
+      if(handler.is_owner===false) row.append(el('span',t('expertise_outside'),'expertise-outside'));
+      row.append(el('br'),document.createTextNode(t('expertise_count',{n:handler.count})));
+      for(const [i,ticket] of (handler.tickets || []).entries()) {
+        if(i) row.append(document.createTextNode(', '));
+        const item=[...(result.evidence || []),...(data.evidence || [])].find(e=>
+          /tickets\.jsonl$/.test(e.source || '') && (e.excerpt || '').includes(ticket));
+        if(item) {
+          const button=el('button',ticket,'citation'); button.type='button'; button.title=t('view_excerpt');
+          button.addEventListener('click',()=>showEvidence(item)); row.append(button);
+        } else row.append(document.createTextNode(ticket));
+      }
+      handlers.append(row);
+    }
+    columns.append(owners,handlers); card.append(columns);
+  }
+  const conclusion=document.querySelector('#answer .conclusion');
+  if(conclusion) conclusion.after(card); else $('answer').append(card);
+}
 function renderAnswer(data) {
   evidence=data.evidence || [];
   citations=data.citations || [];
@@ -310,6 +347,7 @@ function renderAnswer(data) {
     const p=el('p',undefined,'answer-line'); appendCitations(p,line.replace(/^\s*[-*]\s+/,'')); (box || $('answer')).append(p);
   }
   document.querySelector('#answer .conclusion')?.append(el('p', t('cite_hint'), 'hint cite-hint'));
+  renderExpertise(data);
   if(data.stop_reason && data.stop_reason!=='completed') $('answer').append(el('p',t('budget',{r:data.stop_reason}),'hint'));
   for(const warning of data.warnings || []) $('answer').append(el('p',warning,'error'));
   $('trace').replaceChildren(el('p',t('trace_howto'),'trace-howto'));
