@@ -22,6 +22,7 @@
   .health-link{color:var(--blue);font-size:13px;margin-right:12px;text-decoration:none}.headright{display:flex;align-items:center}
   .expertise-card{border:1px solid var(--line);border-radius:8px;padding:12px;margin:10px 0;font-size:12px}.expertise-card h3{margin:0 0 8px;font-size:13px;color:var(--mint)}.expertise-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.expertise-columns h4{margin:0 0 6px;color:var(--muted);font-size:12px}.expertise-columns p{margin:6px 0}.expertise-outside{display:inline-block;border-radius:4px;padding:1px 5px;margin-left:5px;background:var(--line);color:var(--muted);font-size:11px}
   #path{height:auto;max-height:760px;overflow:auto;min-height:330px}#path-canvas{height:420px;position:relative}#path-tooltip{position:fixed;z-index:100;max-width:min(440px,90vw);padding:10px 12px;border:1px solid var(--amber);border-radius:7px;background:#2a2414;color:#ffe2a8;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none}#q-label:empty{display:none}
+  #ask-progress .progress-result{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   </style>
 </head>
 <body>
@@ -101,6 +102,22 @@ const STEP = {
     query_relations: ['Follow relations', 'Walk 1-3 hops along chosen relations.', (s,a) => `${s.paths||0} paths`],
     module_expertise: ['Who has actually fixed it', 'The listed owner is not always the one who knows. Two hops, Ticket -> about module and Ticket -> handled by, find who has actually handled this module\'s tickets.', (s,a) => `"${a.module_id}": ${s.handlers||0} people have handled its tickets`],
     describe_ontology: ['Read the ontology', 'Which entity kinds and relations exist.', () => 'read'],
+  }
+};
+const STATUS_TEXT = {
+  "zh": {
+    "applicable": "是什么：图里找到了当前有效、适用于你情况的规则或事实，结论每句都有原文出处。\n系统怎么判断：读到的关系都已批准、在有效期内、没有被替代，适用条件也满足（或没有条件）。",
+    "superseded": "是什么：资料里有旧规则，也有一条更新的通知或规则通过「替代了」关系取代了它。例：周报原来用邮件提交，2026-09-15 起改为网页表单提交。\n系统怎么判断：旧规则身上有一条「替代了」关系指向它，且新规则的生效日期已到。答案只按新规则给，旧规则列出来供对照，并写明生效日期。",
+    "conflict": "是什么：关于同一件事，不同来源给出互相矛盾的说法；或者你提问里的前提（比如\"找 Wesley Tate 登后台处理\"）和权威资料矛盾。系统不替你随便选一个：把双方并列，标明各自来源级别（正式规则 > 惯例 > 聊天/观察），按正式来源给出建议做法。\n系统怎么判断（四个条件同时满足才算冲突）：\n1. 说的是同一个对象的同一个问题（例如\"某模块的升级负责人是谁\"）；\n2. 两种说法的适用条件和有效期有重叠；\n3. 值互斥，不能同时成立。多值事实（一个模块有多个资源）、不同粒度、按不同违规项分别定价的扣分表，都不算冲突；\n4. 另外，提问的前提被权威记录否定，也按冲突处理。",
+    "insufficient_context": "是什么：规则只在某个条件下成立（例如严重级别是 P3），而问题里没有说明这个条件。\n系统怎么判断：读到的规则带适用条件，而提问没有提供这个条件。答案给出带条件的规则，并说明缺哪个条件、可能的取值。",
+    "not_found": "是什么：查过的地方都没有能回答的事实。\n系统怎么判断：没有读到与问题相关的、可引用的关系或原文。答案列出查了什么、缺什么，不猜、不推荐\"看起来像\"的负责人。"
+  },
+  "en": {
+    "applicable": "What it means: The graph contains currently valid rules or facts that apply to your situation. Every sentence in the conclusion has an original source.\nHow the system decides: All retrieved relations are approved, within their validity period, and have not been superseded. Their applicability conditions are met (or there are no conditions).",
+    "superseded": "What it means: The material contains an old rule and a newer notice or rule that replaces it through a “supersedes” relation. For example, weekly reports used to be submitted by email; from 2026-09-15 they must be submitted through a web form.\nHow the system decides: A “supersedes” relation points to the old rule, and the new rule’s effective date has arrived. The answer follows only the new rule, lists the old rule for comparison, and states the effective date.",
+    "conflict": "What it means: Different sources make contradictory statements about the same matter, or a premise in your question (such as “ask Wesley Tate to log into the admin console and handle it”) contradicts authoritative material. The system does not arbitrarily choose one: it presents both sides, labels each source’s authority (formal rule > practice > chat/observation), and recommends an action based on the formal source.\nHow the system decides (all four conditions must be met for a conflict):\n1. The statements concern the same question about the same object (for example, “who is responsible for upgrading a particular module”);\n2. Their applicability conditions and validity periods overlap;\n3. The values are mutually exclusive and cannot both hold. Multi-valued facts (a module has several resources), different levels of detail, and penalty tables that price different violations separately do not count as conflicts;\n4. In addition, a premise in the question that is contradicted by an authoritative record is also treated as a conflict.",
+    "insufficient_context": "What it means: A rule holds only under a particular condition (for example, severity P3), but the question does not specify that condition.\nHow the system decides: A retrieved rule has an applicability condition that the question does not provide. The answer gives the conditional rule and explains which condition is missing and its possible values.",
+    "not_found": "What it means: None of the places searched contains facts that can answer the question.\nHow the system decides: No relevant, citable relations or original passages were retrieved. The answer lists what was searched and what is missing, without guessing or recommending a person who “seems likely” to be responsible."
   }
 };
 // One sentence per cited edge: {s} = source node, {t} = target node.
@@ -254,7 +271,8 @@ function applyLang() {
   document.querySelectorAll('[data-lang]').forEach(b => b.classList.toggle('on', b.dataset.lang === lang));
   renderGlossary();
   renderExamples(); renderQuestionLabel();
-  if (lastData) renderAnswer(lastData);
+  if (busy) renderProgress();
+  else if (lastData) renderAnswer(lastData);
 }
 document.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => { lang = b.dataset.lang; try { localStorage.setItem('oncall-lang', lang); } catch(e) {} applyLang(); }));
 let examples = {};
@@ -298,6 +316,77 @@ async function api(path, options) {
   const data = await response.json();
   if(!response.ok) throw new Error(data.error || data.note || 'Request failed');
   return data;
+}
+let progressSteps = [], progressStarted = 0, composeStarted = null;
+function renderProgress() {
+  const box = el('div', undefined, 'conclusion'); box.id = 'ask-progress';
+  box.append(el('h3', lang === 'zh' ? '查询进度' : 'Question progress'));
+  const list = el('ol'); list.style.paddingLeft = '20px';
+  for (const step of progressSteps) {
+    const st = STEP[lang][step.tool] || [step.tool, '', () => ''];
+    const row = el('li'); row.append(el('strong', `✓ ${st[0]}`));
+    const summary = el('div', st[2](step.summary || {}, step.args || {}) || step.args_str || (lang === 'zh' ? '已完成' : 'Completed'), 'hint progress-result');
+    summary.title = summary.textContent; row.append(summary);
+    list.append(row);
+  }
+  box.append(list);
+  const elapsed = Math.floor((performance.now() - (composeStarted ?? progressStarted)) / 1000);
+  box.append(el('p', composeStarted !== null
+    ? (lang === 'zh' ? `正在组装回答 · ${elapsed} 秒 · 通常 30–60 秒` : `Composing the answer · ${elapsed}s · Usually 30–60 seconds`)
+    : (lang === 'zh' ? `正在查图 · ${elapsed} 秒` : `Querying the graph · ${elapsed}s`), 'hint'));
+  $('answer').replaceChildren(box);
+}
+function receiveStep(step) {
+  if (step.tool === 'compose') composeStarted = performance.now();
+  else { progressSteps.push(step); composeStarted = null; }
+  renderProgress();
+}
+async function askWithProgress(payload) {
+  const options = {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)};
+  if (!window.ReadableStream || !window.TextDecoder) return api('/api/ask', options);
+  let response;
+  try { response = await fetch('/api/ask/stream', options); }
+  catch (error) { return api('/api/ask', options); }
+  if ([404,405,501].includes(response.status) || (response.ok && (!response.body?.getReader || !response.headers.get('content-type')?.includes('text/event-stream')))) {
+    await response.body?.cancel(); return api('/api/ask', options);
+  }
+  if (!response.ok) { const data = await response.json(); throw new Error(data.error || 'Request failed'); }
+  const reader = response.body.getReader(), decoder = new TextDecoder();
+  let buffer = '';
+  function frame(block) {
+    let event = 'message'; const lines = [];
+    for (const line of block.split(/\r?\n/)) {
+      if (line.startsWith('event:')) event = line.slice(6).trim();
+      if (line.startsWith('data:')) lines.push(line.slice(5).replace(/^ /, ''));
+    }
+    if (!lines.length) return;
+    const data = JSON.parse(lines.join('\n'));
+    if (event === 'step') receiveStep(data);
+    if (event === 'error') throw new Error(data.error || 'Request failed');
+    if (event === 'done') return data;
+  }
+  try {
+    while (true) {
+      const {value, done} = await reader.read();
+      buffer += decoder.decode(value, {stream: !done});
+      let boundary;
+      while ((boundary = /\r?\n\r?\n/.exec(buffer))) {
+        const result = frame(buffer.slice(0, boundary.index));
+        buffer = buffer.slice(boundary.index + boundary[0].length);
+        if (result) return result;
+      }
+      if (done) { if (buffer.trim()) { const result = frame(buffer); if (result) return result; } throw new Error(lang === 'zh' ? '连接已中断，请重试。' : 'Connection ended before the answer. Please retry.'); }
+    }
+  } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+}
+function renderStatusExplanation(state) {
+  const text = STATUS_TEXT[lang][state]; if (!text) return;
+  const details = el('details'); details.id = 'status-explanation'; details.className = 'glossary';
+  details.open = state === 'conflict';
+  details.append(el('summary', lang === 'zh' ? '这是什么意思？系统怎么判断的' : 'What does this mean? How was it decided?'));
+  const body = el('div', text); body.style.whiteSpace = 'pre-wrap'; details.append(body);
+  const conclusion = document.querySelector('#answer .conclusion');
+  if (conclusion) conclusion.after(details); else $('answer').append(details);
 }
 function activity(message, error=false) { $('activity').textContent=message; $('activity').className=error?'error':'hint'; }
 function showEvidence(item, label) {
@@ -389,6 +478,7 @@ function renderAnswer(data) {
   }
   document.querySelector('#answer .conclusion')?.append(el('p', t('cite_hint'), 'hint cite-hint'));
   renderExpertise(data);
+  renderStatusExplanation(state);
   if(data.stop_reason && data.stop_reason!=='completed') $('answer').append(el('p',t('budget',{r:data.stop_reason}),'hint'));
   for(const warning of data.warnings || []) $('answer').append(el('p',warning,'error'));
   $('trace').replaceChildren(el('p',t('trace_howto'),'trace-howto'));
@@ -592,9 +682,11 @@ $('ask-form').addEventListener('submit',async event=>{
   event.preventDefault();if(busy || !$('question').value.trim())return;
   busy=true;$('ask-button').disabled=true;document.querySelectorAll('[data-example]').forEach(b=>b.disabled=true);activity($('deep').checked?t('busy_deep'):t('busy_fast')); document.querySelector('.examples-box').open=false;
   const started = performance.now(); submittedQuestion = $('question').value; $('answer-status').replaceChildren(); $('technical-details').hidden = true;
-  try { const data=await api('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:submittedQuestion,mode:$('deep').checked?'deep':'fast',lang})}); requestSeconds = (performance.now() - started) / 1000; renderAnswer(data); }
-  catch(error){activity(error.message,true);}
-  finally{busy=false;$('ask-button').disabled=false;document.querySelectorAll('[data-example]').forEach(b=>b.disabled=false);}
+  lastData = null; progressSteps = []; progressStarted = started; composeStarted = null; renderProgress();
+  const timer = setInterval(renderProgress, 1000);
+  try { const data=await askWithProgress({question:submittedQuestion,mode:$('deep').checked?'deep':'fast',lang}); requestSeconds = (performance.now() - started) / 1000; renderAnswer(data); }
+  catch(error){$('answer').replaceChildren(el('p',error.message,'error'));activity(error.message,true);}
+  finally{clearInterval(timer);busy=false;$('ask-button').disabled=false;document.querySelectorAll('[data-example]').forEach(b=>b.disabled=false);}
 });
 $('question').addEventListener('input', () => { selectedExample = ''; renderQuestionLabel(); });
 fetch('/api/examples').then(r => r.json()).then(list => { for (const q of list) examples[`Q${q.qid}`] = q.question; renderExamples(); }).catch(() => {});
