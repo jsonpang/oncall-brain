@@ -16,6 +16,7 @@ people, teams, territories, tickets, and policies are synthetic.
 
 - **Demo video:** <VIDEO_URL>
 - **Screenshot walkthrough (Chinese captions):** [docs/walkthrough/README.md](docs/walkthrough/README.md)
+- **Requirements spec & user stories (Chinese):** [docs/03-需求规格说明.md](docs/03-需求规格说明.md)
 
 ## Install / Quick start
 
