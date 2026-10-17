@@ -14,7 +14,7 @@ people, teams, territories, tickets, and policies are synthetic.
 
 ![Answer with cited conclusion, owner vs. actual handlers](docs/walkthrough/02-conclusion.png)
 
-- **Demo video:** <VIDEO_URL>
+- **Demo video (3 min):** https://youtu.be/gifjF3u3s0c
 - **Screenshot walkthrough (Chinese captions):** [docs/walkthrough/README.md](docs/walkthrough/README.md)
 - **Requirements spec & user stories (Chinese):** [docs/03-需求规格说明.md](docs/03-需求规格说明.md)
 
