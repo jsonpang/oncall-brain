@@ -4,8 +4,6 @@ English · [简体中文](README.zh-CN.md)
 
 > Ask who owns it, who has fixed it, which rule applies, and what to do next. Follow each answer back to its source line.
 
-**FalkorDB Graph Hacks - Track: T3 Company Brain**
-
 OnCall Brain joins operations documents, organisation records, chat discussions,
 and support tickets in a FalkorDB knowledge graph. It separates official
 responsibility from ticket-handling history, keeps rule replacement chains,
