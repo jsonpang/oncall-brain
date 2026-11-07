@@ -1,5 +1,7 @@
 # OnCall Brain
 
+English · [简体中文](README.zh-CN.md)
+
 > Ask who owns it, who has fixed it, which rule applies, and what to do next. Follow each answer back to its source line.
 
 **FalkorDB Graph Hacks - Track: T3 Company Brain**
