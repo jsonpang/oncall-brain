@@ -1,6 +1,6 @@
 # OnCall Brain Web
 
-A single-page, read-only Graph Hacks demo. No frontend build is required.
+A single-page, read-only demo. No frontend build is required.
 Run these commands from the repository root in PowerShell:
 
 ```powershell

@@ -474,7 +474,7 @@ Two behaviours of the FalkorDB build this was developed against shaped the code:
   silently. Each edge now merges its own endpoints first, so payload ordering
   cannot drop assertions.
 
-## Disclosure - Rule 11
+## Disclosure
 
 All company data is fictional AetherPulse material. AI assistance used during
 development is disclosed separately from runtime inference:

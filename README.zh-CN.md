@@ -325,7 +325,7 @@ python eval/run_gold.py --judge-only
 - 从已绑定的关系变量出发建边会失败，报 `The alias 'r' was specified for both a node and a relationship`。换别名、改用 `CREATE` 或 `MERGE`、重新 `MATCH`，结果都一样。证据因此存在关系的 `evidence` 属性里，图上没有 `(rel)-[:EVIDENCE]->(e)` 这种边。
 - 基于 `MATCH` 的 `MERGE` 在端点不存在时静默失败，什么也不写。现在每条边先合并自己的端点，载荷顺序再也不会弄丢断言。
 
-## 披露 · 规则 11
+## 披露
 
 全部公司资料都是虚构的 AetherPulse 素材。开发阶段的 AI 辅助与运行时的模型推理分开披露。
 
