@@ -1,0 +1,34 @@
+<svg role="img" viewBox="0 0 680 224" width="680" height="224" xmlns="http://www.w3.org/2000/svg" font-family="Microsoft YaHei, PingFang SC, Segoe UI, sans-serif">
+<title>OnCall Brain 一次提问的查询链路</title>
+<desc>快速模式从原文检索、选实体、读图、扩一跳到组装回答，最后统一做引用校验与状态判定。</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+</defs>
+
+<rect x="40" y="40" width="104" height="64" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="92" y="64" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#0C447C">原文检索</text>
+<text x="92" y="84" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185FA5">全文 + IDF</text>
+<path d="M144 72 L162 72" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="164" y="40" width="104" height="64" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="216" y="64" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#0C447C">选实体</text>
+<text x="216" y="84" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185FA5">Jev 或排名</text>
+<path d="M268 72 L286 72" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="288" y="40" width="104" height="64" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="340" y="64" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#0C447C">读图</text>
+<text x="340" y="84" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185FA5">断言 + 出处</text>
+<path d="M392 72 L410 72" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="412" y="40" width="104" height="64" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="464" y="64" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#0C447C">扩一跳</text>
+<text x="464" y="84" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185FA5">邻居·专长</text>
+<path d="M516 72 L534 72" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="536" y="40" width="104" height="64" rx="8" fill="#B5D4F4" stroke="#185FA5" stroke-width="0.5"/>
+<text x="588" y="64" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#0C447C">组装回答</text>
+<text x="588" y="84" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185FA5">一次 compose</text>
+<path d="M588 104 L588 138" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect x="40" y="140" width="600" height="64" rx="10" fill="#F1EFE8" stroke="#B4B2A9" stroke-width="0.5"/>
+<text x="60" y="163" dominant-baseline="central" font-size="13" font-weight="500" fill="#2C2C2A">收口：引用校验 → 状态判定 → 页面可点开原文行</text>
+<text x="60" y="184" dominant-baseline="central" font-size="12" fill="#5F5E5A">红线：模型只选工具与参数，Cypher 由服务端模板生成；实体 ID 只能来自工具返回</text>
+</svg>

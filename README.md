@@ -163,6 +163,8 @@ adapter. Health, impact, and sequence are Python/HTTP features.
 
 ## Architecture
 
+![Six-layer architecture, from corpus to clients (Chinese labels)](docs/architecture/architecture-layers.png)
+
 ```mermaid
 flowchart LR
     C["AetherPulse corpus: docs, org, chat, tickets"] --> I
@@ -178,6 +180,10 @@ flowchart LR
     D --> W
     T --> M["MCP stdio: four core tools"]
 ```
+
+![Fast-mode query path for one question, ending in citation checks (Chinese labels)](docs/architecture/architecture-query-flow.png)
+
+Editable SVG sources: [six-layer view](docs/architecture/architecture-layers.svg), [query path](docs/architecture/architecture-query-flow.svg).
 
 FalkorDB joins across source types, resolves ownership and ticket handlers,
 filters relationship visibility at each hop, and retains replacement history.
